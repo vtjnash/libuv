@@ -40,6 +40,7 @@
 #include <sys/uio.h> /* writev */
 #include <sys/resource.h> /* getrusage */
 #include <pwd.h>
+#include <sched.h>
 
 #ifdef __sun
 # include <netdb.h> /* MAXHOSTNAMELEN on Solaris */
@@ -1339,4 +1340,13 @@ uv_pid_t uv_os_getpid(void) {
 
 uv_pid_t uv_os_getppid(void) {
   return getppid();
+}
+
+
+int uv_cpumask_size(void) {
+#if defined(__APPLE__) && defined(__MACH__) || defined(_AIX)
+  return -ENOTSUP;
+#else /* !((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX)) */
+  return CPU_SETSIZE;
+#endif
 }
