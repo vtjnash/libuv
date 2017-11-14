@@ -85,8 +85,17 @@ INLINE static void uv_req_init(uv_loop_t* loop, uv_req_t* req) {
 }
 
 
-INLINE static uv_req_t* uv_overlapped_to_req(OVERLAPPED* overlapped) {
-  return CONTAINING_RECORD(overlapped, uv_req_t, u.io.overlapped);
+INLINE static uv_req_t* uv_overlapped_to_req(uv_loop_t* loop, OVERLAPPED* overlapped) {
+  QUEUE *q;
+  uv_req_t* r;
+  QUEUE_FOREACH_REV(q, &loop->active_reqs) { /* old reqs are probably going to finish first, so check them first by reverse-iterating */
+    r = QUEUE_DATA(q, uv_req_t, active_queue);
+    if (&r->u.io.overlapped == overlapped)
+      return r;
+  }
+  /* TODO: report that we got an unexpected event and return NULL */
+  r = CONTAINING_RECORD(overlapped, uv_req_t, u.io.overlapped);
+  return r;
 }
 
 

@@ -270,8 +270,9 @@ static void uv_poll(uv_loop_t* loop, DWORD timeout) {
 
     if (overlapped) {
       /* Package was dequeued */
-      req = uv_overlapped_to_req(overlapped);
-      uv_insert_pending_req(loop, req);
+      req = uv_overlapped_to_req(loop, overlapped);
+      if (req)
+        uv_insert_pending_req(loop, req);
 
       /* Some time might have passed waiting for I/O,
        * so update the loop time here.
@@ -324,8 +325,9 @@ static void uv_poll_ex(uv_loop_t* loop, DWORD timeout) {
     if (success) {
       for (i = 0; i < count; i++) {
         /* Package was dequeued */
-        req = uv_overlapped_to_req(overlappeds[i].lpOverlapped);
-        uv_insert_pending_req(loop, req);
+        req = uv_overlapped_to_req(loop, overlappeds[i].lpOverlapped);
+        if (req)
+          uv_insert_pending_req(loop, req);
       }
 
       /* Some time might have passed waiting for I/O,

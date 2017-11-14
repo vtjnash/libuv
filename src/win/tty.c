@@ -207,6 +207,9 @@ int uv_tty_init(uv_loop_t* loop, uv_tty_t* tty, uv_file fd, int readable) {
     tty->tty.wr.ansi_parser_state = ANSI_NORMAL;
   }
 
+  uv_req_init(loop, &tty->read_req);
+  tty->read_req.type = UV_READ;
+
   return 0;
 }
 
@@ -394,6 +397,8 @@ static void uv_tty_queue_read_raw(uv_loop_t* loop, uv_tty_t* handle) {
     handle->tty.rd.read_raw_wait = NULL;
     SET_REQ_ERROR(req, GetLastError());
     uv_insert_pending_req(loop, (uv_req_t*)req);
+  } else {
+    REGISTER_HANDLE_REQ(loop, handle, req);
   }
 
   handle->flags |= UV_HANDLE_READ_PENDING;
@@ -498,6 +503,9 @@ static void uv_tty_queue_read_line(uv_loop_t* loop, uv_tty_t* handle) {
   if (!r) {
     SET_REQ_ERROR(req, GetLastError());
     uv_insert_pending_req(loop, (uv_req_t*)req);
+  }
+  else {
+    REGISTER_HANDLE_REQ(loop, handle, req);
   }
 
  out:
@@ -902,6 +910,7 @@ void uv_process_tty_read_req(uv_loop_t* loop, uv_tty_t* handle,
   assert(handle->type == UV_TTY);
   assert(handle->flags & UV_HANDLE_TTY_READABLE);
 
+  UNREGISTER_HANDLE_REQ(loop, handle, req);
   /* If the read_line_buffer member is zero, it must have been an raw read. */
   /* Otherwise it was a line-buffered read. */
   /* FIXME: This is quite obscure. Use a flag or something. */
