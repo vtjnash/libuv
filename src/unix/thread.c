@@ -230,7 +230,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   int r;
   cpu_set_t cpuset;
   int cpumasksize;
-  
+
   cpumasksize = uv_cpumask_size();
   assert(mask_size >= (size_t)cpumasksize);
 
@@ -255,7 +255,7 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   int i;
   cpu_set_t cpuset;
   int cpumasksize;
-  
+
   cpumasksize = uv_cpumask_size();
   assert(mask_size >= (size_t)cpumasksize);
 

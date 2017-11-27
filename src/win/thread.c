@@ -138,7 +138,7 @@ int uv_thread_create(uv_thread_t *tid, void (*entry)(void *arg), void *arg) {
   ctx->arg = arg;
 
   /* Create the thread in suspended state so we have a chance to pass
-   * its own creation handle to it */   
+   * its own creation handle to it */
   thread = (HANDLE) _beginthreadex(NULL,
                                    0,
                                    uv__thread_start,
@@ -181,7 +181,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   DWORD_PTR threadmask = 0;
   DWORD_PTR oldthreadmask;
   int cpumasksize;
-  
+
   cpumasksize = uv_cpumask_size();
   assert(mask_size >= (size_t)cpumasksize);
 
@@ -220,7 +220,7 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   DWORD_PTR sysmask;
   DWORD_PTR threadmask;
   int cpumasksize;
-  
+
   threadmask = 0;
   cpumasksize = uv_cpumask_size();
   assert(mask_size >= (size_t)cpumasksize);

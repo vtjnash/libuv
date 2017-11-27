@@ -6,6 +6,17 @@
 
 #include <string.h>
 
+#if defined(__APPLE__) && defined(__MACH__) || defined(_AIX)
+
+TEST_IMPL(thread_affinity) {
+  int cpumasksize;
+  cpumasksize = uv_cpumask_size();
+  ASSERT(cpumasksize == UV_ENOTSUP);
+  return 0;
+}
+
+#else
+
 static void check_affinity(void* arg) {
   int r;
   char* cpumask = arg;
@@ -17,6 +28,7 @@ static void check_affinity(void* arg) {
   if (r != 0)
     cpumask[0] = cpumask[1] = -1;
 }
+
 
 TEST_IMPL(thread_affinity) {
   int t1first, t1second, t2first, t2second;
@@ -61,3 +73,5 @@ TEST_IMPL(thread_affinity) {
 
   return 0;
 }
+
+#endif
