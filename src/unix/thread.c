@@ -252,6 +252,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
 int uv_thread_getaffinity(uv_thread_t* tid,
                           char* cpumask,
                           size_t mask_size) {
+  int r;
   int i;
   cpu_set_t cpuset;
   int cpumasksize;
@@ -260,7 +261,9 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   assert(mask_size >= (size_t)cpumasksize);
 
   CPU_ZERO(&cpuset);
-  pthread_getaffinity_np(*tid, sizeof(cpuset), &cpuset);
+  r = pthread_getaffinity_np(*tid, sizeof(cpuset), &cpuset);
+  if (r)
+    return -r;
   for (i = 0; i < cpumasksize; i++)
     cpumask[i] = CPU_ISSET(i, &cpuset);
 

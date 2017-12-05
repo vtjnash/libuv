@@ -19,14 +19,18 @@ TEST_IMPL(thread_affinity) {
 
 static void check_affinity(void* arg) {
   int r;
-  char* cpumask = arg;
-  int cpumasksize = uv_cpumask_size();
+  char* cpumask;
+  int cpumasksize;
+  uv_thread_t tid;
 
-  uv_thread_t tid = uv_thread_self();
-  uv_thread_setaffinity(&tid, cpumask, NULL, cpumasksize);
+  cpumask = (char*)arg;
+  cpumasksize = uv_cpumask_size();
+  ASSERT(cpumasksize > 0);
+  tid = uv_thread_self();
+  r = uv_thread_setaffinity(&tid, cpumask, NULL, cpumasksize);
+  ASSERT(r == 0);
   r = uv_thread_setaffinity(&tid, cpumask + cpumasksize, cpumask, cpumasksize);
-  if (r != 0)
-    cpumask[0] = cpumask[1] = -1;
+  ASSERT(r == 0);
 }
 
 
@@ -37,6 +41,7 @@ TEST_IMPL(thread_affinity) {
   uv_thread_t threads[2];
 
   cpumasksize = uv_cpumask_size();
+  ASSERT(cpumasksize > 0);
   t1first = cpumasksize * 0;
   t1second = cpumasksize * 1;
   t2first = cpumasksize * 2;
@@ -44,10 +49,10 @@ TEST_IMPL(thread_affinity) {
 
   cpumask = (char*)calloc(4 * cpumasksize, 1);
 
-  cpumask[t1first  + 1] = cpumask[t1first  + 3] = 1;
+  cpumask[t1first + 1] = cpumask[t1first + 3] = 1;
   cpumask[t1second + 0] = cpumask[t1second + 2] = 1;
 
-  cpumask[t2first  + 0] = cpumask[t2first  + 2] = 1;
+  cpumask[t2first + 0] = cpumask[t2first + 2] = 1;
   cpumask[t2second + 1] = cpumask[t2second + 3] = 1;
 
   ASSERT(0 == uv_thread_create(threads + 0,

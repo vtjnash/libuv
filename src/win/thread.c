@@ -178,7 +178,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   HANDLE hproc;
   DWORD_PTR procmask;
   DWORD_PTR sysmask;
-  DWORD_PTR threadmask = 0;
+  DWORD_PTR threadmask;
   DWORD_PTR oldthreadmask;
   int cpumasksize;
 
@@ -189,6 +189,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   if (!GetProcessAffinityMask(hproc, &procmask, &sysmask))
     return uv_translate_sys_error(GetLastError());
 
+  threadmask = 0;
   for (i = 0; i < cpumasksize; i++) {
     if (cpumask[i]) {
       if (procmask & (1 << i))
@@ -221,7 +222,6 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   DWORD_PTR threadmask;
   int cpumasksize;
 
-  threadmask = 0;
   cpumasksize = uv_cpumask_size();
   assert(mask_size >= (size_t)cpumasksize);
 

@@ -60,12 +60,37 @@ Threads
     .. versionchanged:: 1.4.1 returns a UV_E* error code on failure
 
 .. c:function:: int uv_thread_setaffinity(uv_thread_t* tid, char* cpumask, char* oldmask, size_t mask_size)
-.. c:function:: int uv_thread_getaffinity(uv_thread_t* tid, char* cpumask, size_t mask_size)
+
+    Sets the specified thread's affinity to cpumask, which is specified in
+    bytes. Returns the previous affinity setting in oldmask, if provided.
+    On Unix, uses :man:`pthread_getaffinity_np(3)` to get the affinity setting and maps
+    the cpu_set_t to bytes in oldmask. Then maps the bytes in cpumask to a
+    cpu_set_t and uses :man:`pthread_setaffinity_np(3)`. On Windows, maps the
+    bytes in cpumask to a bitmask and uses SetThreadAffinityMask() which returns
+    the previous affinity setting. Unsupported on macOS.
 
     .. note::
         Thread affinity setting/getting is not atomic.
 
+    .. versionadded:: 1.19.0
+
+.. c:function:: int uv_thread_getaffinity(uv_thread_t* tid, char* cpumask, size_t mask_size)
+
+    Gets the specified thread's affinity setting. On Unix, maps the cpu_set_t
+    returned by :man:`pthread_getaffinity_np(3)` to bytes in cpumask. Unsupported on
+    Windows, which doesn't have any way to get the current affinity setting.
+    Unsupported on macOS.
+
+    .. versionadded:: 1.19.0
+
 .. c:function:: int uv_thread_detach(uv_thread_t* tid)
+
+   Detaches the specified thread so it will be cleaned up on exit automatically;
+   joining it is no longer necessary (or possible).
+   Uses :man:`pthread_detach(3)` on Unix and CloseHandle() on Windows.
+
+    .. versionadded:: 1.19.0
+
 .. c:function:: uv_thread_t uv_thread_self(void)
 .. c:function:: int uv_thread_join(uv_thread_t *tid)
 .. c:function:: int uv_thread_equal(const uv_thread_t* t1, const uv_thread_t* t2)
