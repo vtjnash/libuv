@@ -232,7 +232,8 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
-  assert(mask_size >= (size_t)cpumasksize);
+  if (mask_size < (size_t)cpumasksize)
+    return -EINVAL;
 
   if (oldmask != NULL) {
     r = uv_thread_getaffinity(tid, oldmask, mask_size);
@@ -258,7 +259,8 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
-  assert(mask_size >= (size_t)cpumasksize);
+  if (mask_size < (size_t)cpumasksize)
+    return -EINVAL;
 
   CPU_ZERO(&cpuset);
   r = pthread_getaffinity_np(*tid, sizeof(cpuset), &cpuset);

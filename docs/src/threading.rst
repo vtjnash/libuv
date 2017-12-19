@@ -62,24 +62,31 @@ Threads
 .. c:function:: int uv_thread_setaffinity(uv_thread_t* tid, char* cpumask, char* oldmask, size_t mask_size)
 
     Sets the specified thread's affinity to cpumask, which is specified in
-    bytes. Returns the previous affinity setting in oldmask, if provided.
+    bytes. Optionally returning the previous affinity setting in oldmask.
     On Unix, uses :man:`pthread_getaffinity_np(3)` to get the affinity setting and maps
     the cpu_set_t to bytes in oldmask. Then maps the bytes in cpumask to a
     cpu_set_t and uses :man:`pthread_setaffinity_np(3)`. On Windows, maps the
     bytes in cpumask to a bitmask and uses SetThreadAffinityMask() which returns
-    the previous affinity setting. Unsupported on macOS.
+    the previous affinity setting.
+
+    The mask_size specifies the number of entries (bytes) in cpumask / oldmask,
+    and must be greater-than-or-equal-to :c:func:`uv_cpumask_size`.
 
     .. note::
-        Thread affinity setting/getting is not atomic.
+        Thread affinity setting is not atomic on Windows. Unsupported on macOS.
 
     .. versionadded:: 1.19.0
 
 .. c:function:: int uv_thread_getaffinity(uv_thread_t* tid, char* cpumask, size_t mask_size)
 
-    Gets the specified thread's affinity setting. On Unix, maps the cpu_set_t
-    returned by :man:`pthread_getaffinity_np(3)` to bytes in cpumask. Unsupported on
-    Windows, which doesn't have any way to get the current affinity setting.
-    Unsupported on macOS.
+    Gets the specified thread's affinity setting. On Unix, this maps the cpu_set_t
+    returned by :man:`pthread_getaffinity_np(3)` to bytes in cpumask.
+
+    The mask_size specifies the number of entries (bytes) in cpumask,
+    and must be greater-than-or-equal-to :c:func:`uv_cpumask_size`.
+
+    .. note::
+        Thread affinity getting is not atomic on Windows. Unsupported on macOS.
 
     .. versionadded:: 1.19.0
 

@@ -158,6 +158,7 @@ test/test-tcp-write-error.c
 test/test-tcp-write-to-half-open-connection.c
 test/test-tcp-writealot.c
 test/test-thread.c
+test/test-thread-affinity.c
 test/test-threadpool-cancel.c
 test/test-threadpool.c
 test/test-timer-again.c

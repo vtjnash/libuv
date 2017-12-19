@@ -1344,9 +1344,9 @@ uv_pid_t uv_os_getppid(void) {
 
 
 int uv_cpumask_size(void) {
-#if defined(__APPLE__) && defined(__MACH__) || defined(_AIX)
+#if !defined(CPU_SETSIZE)
   return -ENOTSUP;
-#else /* !((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX)) */
+#else
   return CPU_SETSIZE;
 #endif
 }

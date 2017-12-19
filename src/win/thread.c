@@ -183,7 +183,8 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
-  assert(mask_size >= (size_t)cpumasksize);
+  if (mask_size < (size_t)cpumasksize)
+    return -EINVAL;
 
   hproc = GetCurrentProcess();
   if (!GetProcessAffinityMask(hproc, &procmask, &sysmask))
@@ -223,7 +224,8 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
-  assert(mask_size >= (size_t)cpumasksize);
+  if (mask_size < (size_t)cpumasksize)
+    return -EINVAL;
 
   hproc = GetCurrentProcess();
   if (!GetProcessAffinityMask(hproc, &procmask, &sysmask))
