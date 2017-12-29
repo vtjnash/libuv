@@ -222,6 +222,10 @@ int uv_thread_getaffinity(uv_thread_t* tid,
 
 #else /* !((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX)) */
 
+#ifdef UV_BSD_H
+typedef cpuset_t cpu_set_t;
+#endif
+
 int uv_thread_setaffinity(uv_thread_t* tid,
                           char* cpumask,
                           char* oldmask,
@@ -232,6 +236,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
+  assert(cpumasksize > 0);
   if (mask_size < (size_t)cpumasksize)
     return -EINVAL;
 
@@ -259,6 +264,7 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
+  assert(cpumasksize > 0);
   if (mask_size < (size_t)cpumasksize)
     return -EINVAL;
 

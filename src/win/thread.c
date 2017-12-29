@@ -183,8 +183,9 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
+  assert(cpumasksize > 0);
   if (mask_size < (size_t)cpumasksize)
-    return -EINVAL;
+    return UV_EINVAL;
 
   hproc = GetCurrentProcess();
   if (!GetProcessAffinityMask(hproc, &procmask, &sysmask))
@@ -201,7 +202,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   }
 
   oldthreadmask = SetThreadAffinityMask(*tid, threadmask);
-  if (!oldthreadmask)
+  if (oldthreadmask == NULL)
     return uv_translate_sys_error(GetLastError());
 
   if (oldmask != NULL) {
@@ -224,17 +225,17 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
+  assert(cpumasksize > 0);
   if (mask_size < (size_t)cpumasksize)
-    return -EINVAL;
+    return UV_EINVAL;
 
   hproc = GetCurrentProcess();
   if (!GetProcessAffinityMask(hproc, &procmask, &sysmask))
     return uv_translate_sys_error(GetLastError());
 
   threadmask = SetThreadAffinityMask(*tid, procmask);
-  if (!threadmask)
+  if (threadmask == NULL || SetThreadAffinityMask(*tid, threadmask) == NULL)
     return uv_translate_sys_error(GetLastError());
-  SetThreadAffinityMask(*tid, threadmask);
 
   for (i = 0; i < cpumasksize; i++)
     cpumask[i] = (threadmask >> i) & 1;
@@ -245,6 +246,7 @@ int uv_thread_getaffinity(uv_thread_t* tid,
 
 int uv_thread_detach(uv_thread_t* tid) {
   CloseHandle(*tid);
+  *tid = 0;
   return 0;
 }
 

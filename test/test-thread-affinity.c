@@ -35,7 +35,10 @@ static void check_affinity(void* arg) {
 
 
 TEST_IMPL(thread_affinity) {
-  int t1first, t1second, t2first, t2second;
+  int t1first;
+  int t1second;
+  int t2first;
+  int t2second;
   int cpumasksize;
   char* cpumask;
   uv_cpu_info_t* cpu_infos;
@@ -52,7 +55,7 @@ TEST_IMPL(thread_affinity) {
   t2first = cpumasksize * 2;
   t2second = cpumasksize * 3;
 
-  cpumask = (char*)calloc(4 * cpumasksize, 1);
+  cpumask = calloc(4 * cpumasksize, 1);
 
   cpumask[t1second + 0] = cpumask[t1second + 2] = 1;
   cpumask[t2first + 0] = cpumask[t2first + 2] = 1;
@@ -80,7 +83,7 @@ TEST_IMPL(thread_affinity) {
 
   ASSERT(cpumask[t2first + 0] == 1);
   ASSERT(cpumask[t2first + 1] == 0);
-  ASSERT(cpumask[t2first + 3] == (ncpus >= 3));
+  ASSERT(cpumask[t2first + 2] == (ncpus >= 3));
   ASSERT(cpumask[t2first + 3] == 0);
 
   free(cpumask);
