@@ -32,40 +32,62 @@ TEST_IMPL(thread_affinity) {
   int t2second;
   int cpumasksize;
   char* cpumask;
-  uv_cpu_info_t* cpu_infos;
   int ncpus;
-  uv_thread_t threads[2];
+  int r;
+  uv_thread_t threads[3];
 
+#ifdef _WIN32
+  /* uv_thread_self isn't defined for the main thread on Windows */
+  threads[0] = GetCurrentThread();
+#else
+  threads[0] = uv_thread_self();
+#endif
   cpumasksize = uv_cpumask_size();
   ASSERT(cpumasksize > 0);
-  ASSERT(uv_cpu_info(&cpu_infos, &ncpus) == 0);
-  uv_free_cpu_info(cpu_infos, ncpus);
+
+  cpumask = calloc(4 * cpumasksize, 1);
+  ASSERT(cpumask);
+
+  r = uv_thread_getaffinity(&threads[0], cpumask, cpumasksize);
+  ASSERT(r == 0);
+  ASSERT(cpumask[0] && "test must be run with cpu 0 affinity");
+  ncpus = 0;
+  while (cpumask[++ncpus]) { }
+  memset(cpumask, 0, 4 * cpumasksize);
 
   t1first = cpumasksize * 0;
   t1second = cpumasksize * 1;
   t2first = cpumasksize * 2;
   t2second = cpumasksize * 3;
 
-  cpumask = calloc(4 * cpumasksize, 1);
-
-  cpumask[t1second + 0] = cpumask[t1second + 2] = 1;
-  cpumask[t2first + 0] = cpumask[t2first + 2] = 1;
-  if (ncpus == 1) {
-    cpumask[t1first + 0] = cpumask[t1first + 2] = 1;
-    cpumask[t2second + 0] = cpumask[t2second + 2] = 1;
-  } else {
-    cpumask[t1first + 1] = cpumask[t1first + 3] = 1;
-    cpumask[t2second + 1] = cpumask[t2second + 3] = 1;
+  cpumask[t1second + 0] = 1;
+  cpumask[t2first + 0] = 1;
+  cpumask[t1first + (ncpus >= 2)] = 1;
+  cpumask[t2second + (ncpus >= 2)] = 1;
+#ifdef __linux__
+  cpumask[t1second + 2] = 1;
+  cpumask[t2first + 2] = 1;
+  cpumask[t1first + 3] = 1;
+  cpumask[t2second + 3] = 1;
+#else
+  if (ncpus >= 3) {
+    cpumask[t1second + 2] = 1;
+    cpumask[t2first + 2] = 1;
   }
+  if (ncpus >= 4) {
+    cpumask[t1first + 3] = 1;
+    cpumask[t2second + 3] = 1;
+  }
+#endif
 
-  ASSERT(0 == uv_thread_create(threads + 0,
-                               check_affinity,
-                               &cpumask[t1first]));
   ASSERT(0 == uv_thread_create(threads + 1,
                                check_affinity,
+                               &cpumask[t1first]));
+  ASSERT(0 == uv_thread_create(threads + 2,
+                               check_affinity,
                                &cpumask[t2first]));
-  ASSERT(0 == uv_thread_join(threads + 0));
   ASSERT(0 == uv_thread_join(threads + 1));
+  ASSERT(0 == uv_thread_join(threads + 2));
 
   ASSERT(cpumask[t1first + 0] == (ncpus == 1));
   ASSERT(cpumask[t1first + 1] == (ncpus >= 2));
