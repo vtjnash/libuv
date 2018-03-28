@@ -75,7 +75,7 @@ Threads
     .. note::
         Thread affinity setting is not atomic on Windows. Unsupported on macOS.
 
-    .. versionadded:: 1.19.0
+    .. versionadded:: 1.20.0
 
 .. c:function:: int uv_thread_getaffinity(uv_thread_t* tid, char* cpumask, size_t mask_size)
 
@@ -88,7 +88,7 @@ Threads
     .. note::
         Thread affinity getting is not atomic on Windows. Unsupported on macOS.
 
-    .. versionadded:: 1.19.0
+    .. versionadded:: 1.20.0
 
 .. c:function:: int uv_thread_detach(uv_thread_t* tid)
 
@@ -96,7 +96,7 @@ Threads
    joining it is no longer necessary (or possible).
    Uses :man:`pthread_detach(3)` on Unix and CloseHandle() on Windows.
 
-    .. versionadded:: 1.19.0
+    .. versionadded:: 1.20.0
 
 .. c:function:: uv_thread_t uv_thread_self(void)
 .. c:function:: int uv_thread_join(uv_thread_t *tid)

@@ -202,7 +202,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   }
 
   oldthreadmask = SetThreadAffinityMask(*tid, threadmask);
-  if (oldthreadmask == NULL)
+  if (oldthreadmask == 0)
     return uv_translate_sys_error(GetLastError());
 
   if (oldmask != NULL) {
@@ -234,7 +234,7 @@ int uv_thread_getaffinity(uv_thread_t* tid,
     return uv_translate_sys_error(GetLastError());
 
   threadmask = SetThreadAffinityMask(*tid, procmask);
-  if (threadmask == NULL || SetThreadAffinityMask(*tid, threadmask) == NULL)
+  if (threadmask == 0 || SetThreadAffinityMask(*tid, threadmask) == 0)
     return uv_translate_sys_error(GetLastError());
 
   for (i = 0; i < cpumasksize; i++)

@@ -250,7 +250,7 @@ API
 
     Returns the maximum size of the mask used for process/thread affinities.
 
-    .. versionadded:: 1.19.0
+    .. versionadded:: 1.20.0
 
 .. c:function:: int uv_interface_addresses(uv_interface_address_t** addresses, int* count)
 

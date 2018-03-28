@@ -38,6 +38,12 @@
 #include <sys/sem.h>
 #endif
 
+#ifdef UV_BSD_H
+#include <pthread_np.h>
+typedef cpuset_t cpu_set_t;
+#endif
+
+
 #undef NANOSEC
 #define NANOSEC ((uint64_t) 1e9)
 
@@ -221,9 +227,10 @@ int uv_thread_setaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
-  assert(cpumasksize > 0);
+  if (cpumasksize < 0)
+      return cpumasksize;
   if (mask_size < (size_t)cpumasksize)
-    return -EINVAL;
+    return UV__ERR(EINVAL);
 
   if (oldmask != NULL) {
     r = uv_thread_getaffinity(tid, oldmask, mask_size);
@@ -236,7 +243,7 @@ int uv_thread_setaffinity(uv_thread_t* tid,
     if (cpumask[i])
       CPU_SET(i, &cpuset);
 
-  return -pthread_setaffinity_np(*tid, sizeof(cpuset), &cpuset);
+  return UV__ERR(pthread_setaffinity_np(*tid, sizeof(cpuset), &cpuset));
 }
 
 
@@ -249,14 +256,15 @@ int uv_thread_getaffinity(uv_thread_t* tid,
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
-  assert(cpumasksize > 0);
+  if (cpumasksize < 0)
+      return cpumasksize;
   if (mask_size < (size_t)cpumasksize)
-    return -EINVAL;
+    return UV__ERR(EINVAL);
 
   CPU_ZERO(&cpuset);
   r = pthread_getaffinity_np(*tid, sizeof(cpuset), &cpuset);
   if (r)
-    return -r;
+    return UV__ERR(r);
   for (i = 0; i < cpumasksize; i++)
     cpumask[i] = CPU_ISSET(i, &cpuset);
 
@@ -267,19 +275,19 @@ int uv_thread_setaffinity(uv_thread_t* tid,
                           char* cpumask,
                           char* oldmask,
                           size_t mask_size) {
-  return -ENOTSUP;
+  return UV__ERR(ENOTSUP);
 }
 
 
 int uv_thread_getaffinity(uv_thread_t* tid,
                           char* cpumask,
                           size_t mask_size) {
-  return -ENOTSUP;
+  return UV__ERR(ENOTSUP);
 }
 #endif /* defined(__linux__) || defined(UV_BSD_H) */
 
 int uv_thread_detach(uv_thread_t* tid) {
-  return -pthread_detach(*tid);
+  return UV__ERR(pthread_detach(*tid));
 }
 
 

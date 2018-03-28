@@ -1345,7 +1345,7 @@ uv_pid_t uv_os_getppid(void) {
 
 int uv_cpumask_size(void) {
 #if !defined(CPU_SETSIZE)
-  return -ENOTSUP;
+  return UV__ERR(ENOTSUP);
 #else
   return CPU_SETSIZE;
 #endif
