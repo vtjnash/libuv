@@ -40,7 +40,6 @@
 
 #ifdef UV_BSD_H
 #include <pthread_np.h>
-typedef cpuset_t cpu_set_t;
 #endif
 
 
@@ -211,11 +210,7 @@ int uv_thread_create(uv_thread_t *tid, void (*entry)(void *arg), void *arg) {
 }
 
 
-#if defined(__linux__) || defined(UV_BSD_H)
-
-#ifdef UV_BSD_H
-typedef cpuset_t cpu_set_t;
-#endif
+#if defined(__linux__) || defined(__FreeBSD__)
 
 int uv_thread_setaffinity(uv_thread_t* tid,
                           char* cpumask,
@@ -223,12 +218,12 @@ int uv_thread_setaffinity(uv_thread_t* tid,
                           size_t mask_size) {
   int i;
   int r;
-  cpu_set_t cpuset;
+  uv__cpu_set_t cpuset;
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
   if (cpumasksize < 0)
-      return cpumasksize;
+    return cpumasksize;
   if (mask_size < (size_t)cpumasksize)
     return UV__ERR(EINVAL);
 
@@ -252,12 +247,12 @@ int uv_thread_getaffinity(uv_thread_t* tid,
                           size_t mask_size) {
   int r;
   int i;
-  cpu_set_t cpuset;
+  uv__cpu_set_t cpuset;
   int cpumasksize;
 
   cpumasksize = uv_cpumask_size();
   if (cpumasksize < 0)
-      return cpumasksize;
+    return cpumasksize;
   if (mask_size < (size_t)cpumasksize)
     return UV__ERR(EINVAL);
 

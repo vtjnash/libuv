@@ -22,6 +22,11 @@
 #ifndef UV_BSD_H
 #define UV_BSD_H
 
+#if defined(__FreeBSD__)
+# include <sys/cpuset.h>
+# define uv__cpu_set_t cpuset_t
+#endif
+
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
   uv__io_t event_watcher;                                                     \
 

@@ -22,6 +22,10 @@
 #ifndef UV_LINUX_H
 #define UV_LINUX_H
 
+#include <sched.h>
+
+#define uv__cpu_set_t cpu_set_t
+
 #define UV_PLATFORM_LOOP_FIELDS                                               \
   uv__io_t inotify_read_watcher;                                              \
   void* inotify_watchers;                                                     \
