@@ -1745,8 +1745,6 @@ TEST_IMPL(closed_fd_events) {
 
   /* create a pipe and share it with a child process */
   ASSERT(0 == uv_pipe(fd, 0, 0));
-  ASSERT(fd[0] > 2);
-  ASSERT(fd[1] > 2);
 
   /* spawn_helper4 blocks indefinitely. */
   init_process_options("spawn_helper4", exit_cb);
@@ -1764,7 +1762,11 @@ TEST_IMPL(closed_fd_events) {
   ASSERT(0 == uv_pipe_init(uv_default_loop(), &pipe_handle, 0));
   ASSERT(0 == uv_pipe_open(&pipe_handle, fd[0]));
   /* uv_pipe_open() takes ownership of the file descriptor. */
+#ifdef _WIN32
+  fd[0] = INVALID_HANDLE_VALUE;
+#else
   fd[0] = -1;
+#endif
 
   ASSERT(0 == uv_read_start((uv_stream_t*) &pipe_handle, on_alloc, on_read_once));
 
@@ -1800,9 +1802,11 @@ TEST_IMPL(closed_fd_events) {
   /* cleanup */
   ASSERT(0 == uv_process_kill(&process, SIGTERM));
 #ifdef _WIN32
-  ASSERT(0 == _close(fd[1]));
+  ASSERT(0 != CloseHandle(fd[1]));
+  fd[1] = INVALID_HANDLE_VALUE;
 #else
   ASSERT(0 == close(fd[1]));
+  fd[1] = -1;
 #endif
 
   MAKE_VALGRIND_HAPPY();

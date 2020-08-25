@@ -133,7 +133,7 @@ int uv_test_getiovmax(void) {
 }
 
 
-off_t uv_test_lseek(HANDLE fd, off_t offset, int whence) {
+uint64_t uv_test_lseek(HANDLE fd, uint64_t offset, int whence) {
   LARGE_INTEGER offset_;
   LARGE_INTEGER tell;
   offset_.QuadPart = offset;
@@ -164,7 +164,7 @@ int uv_test_getiovmax(void) {
 }
 
 
-int uv_test_lseek(int fd, off_t offset, int whence) {
+off_t uv_test_lseek(int fd, off_t offset, int whence) {
   return lseek(fd, offset, whence);
 }
 #endif

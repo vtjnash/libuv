@@ -472,7 +472,6 @@ UV_EXTERN int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd);
 
 UV_EXTERN uv_buf_t uv_buf_init(char* base, size_t len);
 
-
 /*
  * The following functions are declared 'static inline' to ensure that they
  * end up in the static linkage namespace of the caller and thus point to

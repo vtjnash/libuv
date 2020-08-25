@@ -59,17 +59,22 @@ TEST_IMPL(close_fd) {
   ASSERT(0 == uv_pipe_init(uv_default_loop(), &pipe_handle, 0));
   ASSERT(0 == uv_pipe_open(&pipe_handle, fd[0]));
   /* uv_pipe_open() takes ownership of the file descriptor. */
+#ifdef _WIN32
+  fd[0] = INVALID_HANDLE_VALUE;
+#else
   fd[0] = -1;
+#endif
 
   ASSERT(1 == uv_fs_write(NULL, &req, fd[1], bufs, 1, -1, NULL));
   ASSERT(1 == req.result);
   uv_fs_req_cleanup(&req);
 #ifdef _WIN32
-  ASSERT(0 == _close(fd[1]));
+  ASSERT(0 != CloseHandle(fd[1]));
+  fd[1] = INVALID_HANDLE_VALUE;
 #else
   ASSERT(0 == close(fd[1]));
-#endif
   fd[1] = -1;
+#endif
   ASSERT(0 == uv_read_start((uv_stream_t *) &pipe_handle, alloc_cb, read_cb));
   ASSERT(0 == uv_run(uv_default_loop(), UV_RUN_DEFAULT));
   ASSERT(1 == read_cb_called);

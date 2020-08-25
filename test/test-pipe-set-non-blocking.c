@@ -85,7 +85,12 @@ TEST_IMPL(pipe_set_non_blocking) {
   ASSERT(0 == uv_pipe(fd, 0, 0));
   ASSERT(0 == uv_pipe_open(&pipe_handle, fd[1]));
   ASSERT(0 == uv_stream_set_blocking((uv_stream_t*) &pipe_handle, 1));
-  fd[1] = -1; /* fd[1] is owned by pipe_handle now. */
+  /* fd[1] is owned by pipe_handle now. */
+#ifdef _WIN32
+  fd[1] = INVALID_HANDLE_VALUE;
+#else
+  fd[1] = -1;
+#endif
 
   ctx.fd = fd[0];
   ASSERT(0 == uv_barrier_init(&ctx.barrier, 2));
@@ -120,11 +125,12 @@ TEST_IMPL(pipe_set_non_blocking) {
 
   ASSERT(0 == uv_thread_join(&thread));
 #ifdef _WIN32
-  ASSERT(0 == _close(fd[0]));  /* fd[1] is closed by uv_close(). */
+  ASSERT(0 != CloseHandle(fd[0]));  /* fd[1] is closed by uv_close(). */
+  fd[0] = INVALID_HANDLE_VALUE;
 #else
   ASSERT(0 == close(fd[0]));  /* fd[1] is closed by uv_close(). */
-#endif
   fd[0] = -1;
+#endif
   uv_barrier_destroy(&ctx.barrier);
 
   MAKE_VALGRIND_HAPPY();
