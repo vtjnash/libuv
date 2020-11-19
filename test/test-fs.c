@@ -826,14 +826,21 @@ static void check_utime(const char* path,
      * Test sub-second timestamps only when supported (such as Windows with
      * NTFS). Some other platforms support sub-second timestamps, but that
      * support is filesystem-dependent. Notably OS X (HFS Plus) does NOT
-     * support sub-second timestamps.
+     * support sub-second timestamps. But kernels may round or truncate in
+     * either direction, so we may accept either possible answer.
      */
 #ifdef _WIN32
     ASSERT_DOUBLE_EQ(atime, (long) atime);
     ASSERT_DOUBLE_EQ(mtime, (long) atime);
 #endif
-    ASSERT_EQ(s->st_atim.tv_sec, (long) atime);
-    ASSERT_EQ(s->st_mtim.tv_sec, (long) mtime);
+    if (atime > 0 || (long) atime == atime)
+      ASSERT_EQ(s->st_atim.tv_sec, (long) atime);
+    if (mtime > 0 || (long) mtime == mtime)
+      ASSERT_EQ(s->st_mtim.tv_sec, (long) mtime);
+    ASSERT_GE(s->st_atim.tv_sec, (long) atime - 1);
+    ASSERT_GE(s->st_mtim.tv_sec, (long) mtime - 1);
+    ASSERT_LE(s->st_atim.tv_sec, (long) atime);
+    ASSERT_LE(s->st_mtim.tv_sec, (long) mtime);
   } else {
     double st_atim;
     double st_mtim;
@@ -2594,7 +2601,7 @@ TEST_IMPL(fs_utime_round) {
   atime = mtime = -14245440.25;  /* 1969-07-20T02:56:00.25Z */
 
   r = uv_fs_utime(NULL, &req, path, atime, mtime, NULL);
-#if (defined(_AIX) && !defined(_AIX71)) ||                                    \
+#if (defined(_AIX) && !defined(_AIX72)) ||                                    \
      defined(__MVS__) ||                                                      \
      defined(__PASE__)
   ASSERT(r == UV_EINVAL);
