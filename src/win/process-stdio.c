@@ -93,6 +93,7 @@ void uv_disable_stdio_inheritance(void) {
 }
 
 
+<<<<<<< HEAD
 static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
     uv_pipe_t* server_pipe, HANDLE* child_pipe_ptr, unsigned int flags) {
   char pipe_name[64];
@@ -190,6 +191,9 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
 
 
 int uv__dup(uv_os_fd_t fd, uv_os_fd_t* dupfd) {
+=======
+static int uv__duplicate_handle(uv_loop_t* loop, HANDLE handle, HANDLE* dup) {
+>>>>>>> v1.42.0
   HANDLE current_process;
 
   if (fd == UV_STDIN_FD || fd == UV_STDOUT_FD || fd == UV_STDERR_FD)

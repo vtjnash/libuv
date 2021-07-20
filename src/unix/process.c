@@ -45,6 +45,7 @@ extern char **environ;
 # include <grp.h>
 #endif
 
+<<<<<<< HEAD
 #if defined(__linux__)
 # define uv__cpu_set_t cpu_set_t
 #elif defined(__FreeBSD__)
@@ -53,6 +54,12 @@ extern char **environ;
 # include <pthread_np.h>
 # define uv__cpu_set_t cpuset_t
 #endif
+=======
+#if defined(__MVS__)
+# include "zos-base.h"
+#endif
+
+>>>>>>> v1.42.0
 
 static void uv__chld(uv_signal_t* handle, int signum) {
   uv_process_t* process;
@@ -120,76 +127,6 @@ static void uv__chld(uv_signal_t* handle, int signum) {
   assert(QUEUE_EMPTY(&pending));
 }
 
-
-int uv__make_socketpair(int fds[2], int flags) {
-#if defined(__linux__)
-  static int no_cloexec;
-
-  if (no_cloexec)
-    goto skip;
-
-  if (socketpair(AF_UNIX, SOCK_STREAM | UV__SOCK_CLOEXEC | flags, 0, fds) == 0)
-    return 0;
-
-  /* Retry on EINVAL, it means SOCK_CLOEXEC is not supported.
-   * Anything else is a genuine error.
-   */
-  if (errno != EINVAL)
-    return UV__ERR(errno);
-
-  no_cloexec = 1;
-
-skip:
-#endif
-
-  if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
-    return UV__ERR(errno);
-
-  uv__cloexec(fds[0], 1);
-  uv__cloexec(fds[1], 1);
-
-  if (flags & UV__F_NONBLOCK) {
-    uv__nonblock(fds[0], 1);
-    uv__nonblock(fds[1], 1);
-  }
-
-  return 0;
-}
-
-
-int uv__make_pipe(int fds[2], int flags) {
-#if defined(__linux__)
-  static int no_pipe2;
-
-  if (no_pipe2)
-    goto skip;
-
-  if (uv__pipe2(fds, flags | UV__O_CLOEXEC) == 0)
-    return 0;
-
-  if (errno != ENOSYS)
-    return UV__ERR(errno);
-
-  no_pipe2 = 1;
-
-skip:
-#endif
-
-  if (pipe(fds))
-    return UV__ERR(errno);
-
-  uv__cloexec(fds[0], 1);
-  uv__cloexec(fds[1], 1);
-
-  if (flags & UV__F_NONBLOCK) {
-    uv__nonblock(fds[0], 1);
-    uv__nonblock(fds[1], 1);
-  }
-
-  return 0;
-}
-
-
 /*
  * Used for initializing stdio streams like options.stdin_stream. Returns
  * zero on success. See also the cleanup section in uv_spawn().
@@ -209,7 +146,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
     if (container->data.stream->type != UV_NAMED_PIPE)
       return UV_EINVAL;
     else
-      return uv__make_socketpair(fds, 0);
+      return uv_socketpair(SOCK_STREAM, 0, fds, 0, 0);
 
   case UV_INHERIT_FD:
   case UV_INHERIT_STREAM:
@@ -258,7 +195,7 @@ static int uv__process_open_stream(uv_stdio_container_t* container,
 
 static void uv__process_close_stream(uv_stdio_container_t* container) {
   if (!(container->flags & UV_CREATE_PIPE)) return;
-  uv__stream_close((uv_stream_t*)container->data.stream);
+  uv__stream_close(container->data.stream);
 }
 
 
@@ -273,6 +210,12 @@ static void uv__write_int(int fd, int val) {
     return; /* parent process has quit */
 
   assert(n == sizeof(val));
+}
+
+
+static void uv__write_errno(int error_fd) {
+  uv__write_int(error_fd, UV__ERR(errno));
+  _exit(127);
 }
 
 
@@ -310,10 +253,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
     if (use_fd < 0 || use_fd >= fd)
       continue;
     pipes[fd][1] = fcntl(use_fd, F_DUPFD, stdio_count);
-    if (pipes[fd][1] == -1) {
-      uv__write_int(error_fd, UV__ERR(errno));
-      _exit(127);
-    }
+    if (pipes[fd][1] == -1)
+      uv__write_errno(error_fd);
   }
 
   for (fd = 0; fd < stdio_count; fd++) {
@@ -330,10 +271,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
         use_fd = open("/dev/null", fd == 0 ? O_RDONLY : O_RDWR);
         close_fd = use_fd;
 
-        if (use_fd == -1) {
-          uv__write_int(error_fd, UV__ERR(errno));
-          _exit(127);
-        }
+        if (use_fd < 0)
+          uv__write_errno(error_fd);
       }
     }
 
@@ -342,10 +281,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
     else
       fd = dup2(use_fd, fd);
 
-    if (fd == -1) {
-      uv__write_int(error_fd, UV__ERR(errno));
-      _exit(127);
-    }
+    if (fd == -1)
+      uv__write_errno(error_fd);
 
     if (fd <= 2)
       uv__nonblock_fcntl(fd, 0);
@@ -361,10 +298,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
       uv__close(use_fd);
   }
 
-  if (options->cwd != NULL && chdir(options->cwd)) {
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
-  }
+  if (options->cwd != NULL && chdir(options->cwd))
+    uv__write_errno(error_fd);
 
   if (options->flags & (UV_PROCESS_SETUID | UV_PROCESS_SETGID)) {
     /* When dropping privileges from root, the `setgroups` call will
@@ -377,15 +312,11 @@ static void uv__process_child_init(const uv_process_options_t* options,
     SAVE_ERRNO(setgroups(0, NULL));
   }
 
-  if ((options->flags & UV_PROCESS_SETGID) && setgid(options->gid)) {
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
-  }
+  if ((options->flags & UV_PROCESS_SETGID) && setgid(options->gid))
+    uv__write_errno(error_fd);
 
-  if ((options->flags & UV_PROCESS_SETUID) && setuid(options->uid)) {
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
-  }
+  if ((options->flags & UV_PROCESS_SETUID) && setuid(options->uid))
+    uv__write_errno(error_fd);
 
 #if defined(__linux__) || defined(__FreeBSD__)
   if (options->cpumask != NULL) {
@@ -420,25 +351,31 @@ static void uv__process_child_init(const uv_process_options_t* options,
     if (n == SIGKILL || n == SIGSTOP)
       continue;  /* Can't be changed. */
 
+#if defined(__HAIKU__)
+    if (n == SIGKILLTHR)
+      continue;  /* Can't be changed. */
+#endif
+
     if (SIG_ERR != signal(n, SIG_DFL))
       continue;
 
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
+    uv__write_errno(error_fd);
   }
 
   /* Reset signal mask. */
   sigemptyset(&set);
   err = pthread_sigmask(SIG_SETMASK, &set, NULL);
 
-  if (err != 0) {
-    uv__write_int(error_fd, UV__ERR(err));
-    _exit(127);
-  }
+  if (err != 0)
+    uv__write_errno(error_fd);
 
+#ifdef __MVS__
+  execvpe(options->file, options->args, environ);
+#else
   execvp(options->file, options->args);
-  uv__write_int(error_fd, UV__ERR(errno));
-  _exit(127);
+#endif
+
+  uv__write_errno(error_fd);
 }
 #endif
 
@@ -476,6 +413,8 @@ int uv_spawn(uv_loop_t* loop,
                               UV_PROCESS_SETGID |
                               UV_PROCESS_SETUID |
                               UV_PROCESS_WINDOWS_HIDE |
+                              UV_PROCESS_WINDOWS_HIDE_CONSOLE |
+                              UV_PROCESS_WINDOWS_HIDE_GUI |
                               UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
 
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
