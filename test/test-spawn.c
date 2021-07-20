@@ -1691,10 +1691,9 @@ TEST_IMPL(spawn_fs_open) {
   const char dev_null[] = "/dev/null";
 #endif
 
-  r = uv_fs_open(NULL, &fs_req, "/dev/null", O_RDWR, 0, NULL);
+  r = uv_fs_open(NULL, &fs_req, dev_null, O_RDWR, 0, NULL);
   ASSERT(r == 0);
-  fd = (uv_os_fd_t)fs_req.result;
-  uv_fs_req_cleanup(&fs_req);
+  fd = (uv_os_fd_t) fs_req.result;
 
   init_process_options("spawn_helper8", exit_cb);
 
@@ -1741,7 +1740,7 @@ TEST_IMPL(closed_fd_events) {
   uv_pipe_t pipe_handle;
   uv_fs_t req;
   uv_buf_t bufs[1];
-  uv_file fd[2];
+  uv_os_fd_t fd[2];
   bufs[0] = uv_buf_init("", 1);
 
   /* create a pipe and share it with a child process */
@@ -1879,6 +1878,7 @@ TEST_IMPL(spawn_reads_child_path) {
   MAKE_VALGRIND_HAPPY();
   return 0;
 }
+
 
 TEST_IMPL(spawn_inherit_streams) {
   uv_process_t child_req;

@@ -52,7 +52,7 @@ TEST_IMPL(close_fd) {
   uv_pipe_t pipe_handle;
   uv_fs_t req;
   uv_buf_t bufs[1];
-  uv_file fd[2];
+  uv_os_fd_t fd[2];
   bufs[0] = uv_buf_init("", 1);
 
   ASSERT(0 == uv_pipe(fd, 0, 0));

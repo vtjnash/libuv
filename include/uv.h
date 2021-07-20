@@ -533,7 +533,7 @@ static INLINE uv_os_fd_t uv_convert_fd_to_handle(int fd) {
 #define UV_STDERR_FD   (2)
 #endif
 
-UV_EXTERN int uv_pipe(uv_file fds[2], int read_flags, int write_flags);
+UV_EXTERN int uv_pipe(uv_os_fd_t fds[2], int read_flags, int write_flags);
 UV_EXTERN int uv_socketpair(int type,
                             int protocol,
                             uv_os_sock_t socket_vector[2],

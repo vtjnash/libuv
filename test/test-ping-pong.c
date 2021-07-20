@@ -315,8 +315,8 @@ static void socketpair_pinger_new(int vectored_writes) {
   ASSERT_EQ(0, uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE));
 #ifndef _WIN32
   /* On Windows, this is actually a UV_TCP, but libuv doesn't detect that. */
-  ASSERT_EQ(uv_guess_handle((uv_file) fds[0]), UV_NAMED_PIPE);
-  ASSERT_EQ(uv_guess_handle((uv_file) fds[1]), UV_NAMED_PIPE);
+  ASSERT_EQ(uv_guess_handle((uv_os_fd_t) fds[0]), UV_NAMED_PIPE);
+  ASSERT_EQ(uv_guess_handle((uv_os_fd_t) fds[1]), UV_NAMED_PIPE);
 #endif
 
   ASSERT_EQ(0, uv_tcp_init(uv_default_loop(), &pinger->stream.tcp));
@@ -341,7 +341,7 @@ static void socketpair_pinger_new(int vectored_writes) {
 
 
 static void pipe2_pinger_new(int vectored_writes) {
-  uv_file fds[2];
+  uv_os_fd_t fds[2];
   pinger_t* pinger;
   uv_pipe_t* ponger;
 
