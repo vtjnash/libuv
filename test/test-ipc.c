@@ -963,7 +963,7 @@ int ipc_helper_send_zero(void) {
   r = uv_pipe_init(uv_default_loop(), &channel, 0);
   ASSERT_EQ(r, 0);
 
-  uv_pipe_open(&channel, 0);
+  uv_pipe_open(&channel, UV_STDIN_FD);
 
   ASSERT_EQ(1, uv_is_readable((uv_stream_t*) &channel));
   ASSERT_EQ(1, uv_is_writable((uv_stream_t*) &channel));

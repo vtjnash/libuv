@@ -24,7 +24,6 @@
 #include <direct.h>
 #include <errno.h>
 #include <limits.h>
-#include <fcntl.h> /* file constants */
 #include <math.h>
 #include <sys/stat.h> /* stat constants */
 #include <sys/utime.h>
@@ -41,14 +40,8 @@
 #define UV_FS_FREE_PTR           0x0008
 #define UV_FS_CLEANEDUP          0x0010
 
-<<<<<<< HEAD
 /* number of attempts to generate a unique directory name before declaring failure */
 #define TMP_MAX 32767
-
-#define UV__RENAME_RETRIES       4
-#define UV__RENAME_WAIT          250
-=======
->>>>>>> v1.42.0
 
 #define INIT(subtype)                                                         \
   do {                                                                        \
@@ -161,8 +154,6 @@ const WCHAR UNC_PATH_PREFIX_LEN = 8;
 
 static int uv__file_symlink_usermode_flag = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
 
-<<<<<<< HEAD
-=======
 static DWORD uv__allocation_granularity;
 
 
@@ -176,7 +167,6 @@ void uv_fs_init(void) {
 }
 
 
->>>>>>> v1.42.0
 INLINE static int fs__capture_path(uv_fs_t* req, const char* path,
     const char* new_path, const int copy_path) {
   char* buf;
@@ -279,8 +269,7 @@ INLINE static int fs__capture_path(uv_fs_t* req, const char* path,
 INLINE static void uv_fs_req_init(uv_loop_t* loop, uv_fs_t* req,
     uv_fs_type fs_type, const uv_fs_cb cb) {
   uv__once_init();
-  UV_REQ_INIT(req, UV_FS);
-  req->loop = loop;
+  UV_REQ_INIT(loop, req, UV_FS);
   req->flags = 0;
   req->fs_type = fs_type;
   req->sys_errno_ = 0;
@@ -664,25 +653,6 @@ void fs__open(uv_fs_t* req) {
     return;
   }
 
-<<<<<<< HEAD
-  SET_REQ_RESULT(req, (uintptr_t)file);
-=======
-  fd = _open_osfhandle((intptr_t) file, flags);
-  if (fd < 0) {
-    /* The only known failure mode for _open_osfhandle() is EMFILE, in which
-     * case GetLastError() will return zero. However we'll try to handle other
-     * errors as well, should they ever occur.
-     */
-    if (errno == EMFILE)
-      SET_REQ_UV_ERROR(req, UV_EMFILE, ERROR_TOO_MANY_OPEN_FILES);
-    else if (GetLastError() != ERROR_SUCCESS)
-      SET_REQ_WIN32_ERROR(req, GetLastError());
-    else
-      SET_REQ_WIN32_ERROR(req, (DWORD) UV_UNKNOWN);
-    CloseHandle(file);
-    return;
-  }
-
   if (flags & UV_FS_O_FILEMAP) {
     FILE_STANDARD_INFO file_info;
     if (!GetFileInformationByHandleEx(file,
@@ -724,11 +694,10 @@ void fs__open(uv_fs_t* req) {
       }
     }
 
-    uv__fd_hash_add(fd, &fd_info);
+    uv__fd_hash_add(file, &fd_info);
   }
 
-  SET_REQ_RESULT(req, fd);
->>>>>>> v1.42.0
+  SET_REQ_RESULT(req, (uintptr_t)file);
   return;
 
  einval:
@@ -740,24 +709,17 @@ void fs__close(uv_fs_t* req) {
   int result;
   struct uv__fd_info_s fd_info;
 
-<<<<<<< HEAD
   if (handle == UV_STDIN_FD || handle == UV_STDOUT_FD || handle == UV_STDERR_FD) {
-=======
-  VERIFY_FD(fd, req);
-
-  if (uv__fd_hash_remove(fd, &fd_info)) {
-    if (fd_info.mapping != INVALID_HANDLE_VALUE) {
-      CloseHandle(fd_info.mapping);
-    }
-  }
-
-  if (fd > 2)
-    result = _close(fd);
-  else
->>>>>>> v1.42.0
     result = 0;
   } else {
     VERIFY_HANDLE(handle, req);
+
+    if (uv__fd_hash_remove(handle, &fd_info)) {
+      if (fd_info.mapping != INVALID_HANDLE_VALUE) {
+        CloseHandle(fd_info.mapping);
+      }
+    }
+
     result = CloseHandle(handle);
   }
 
@@ -790,7 +752,7 @@ LONG fs__filemap_ex_filter(LONG excode, PEXCEPTION_POINTERS pep,
 
 
 void fs__read_filemap(uv_fs_t* req, struct uv__fd_info_s* fd_info) {
-  int fd = req->file.fd; /* VERIFY_FD done in fs__read */
+  HANDLE file = req->file.hFile; /* VERIFY_HANDLE done in fs__read */
   int rw_flags = fd_info->flags &
     (UV_FS_O_RDONLY | UV_FS_O_WRONLY | UV_FS_O_RDWR);
   size_t read_size, done_read;
@@ -879,7 +841,7 @@ void fs__read_filemap(uv_fs_t* req, struct uv__fd_info_s* fd_info) {
 
   if (req->fs.info.offset == -1) {
     fd_info->current_pos = end_pos;
-    uv__fd_hash_add(fd, fd_info);
+    uv__fd_hash_add(file, fd_info);
   }
 
   SET_REQ_RESULT(req, read_size);
@@ -902,7 +864,7 @@ void fs__read(uv_fs_t* req) {
 
   VERIFY_HANDLE(handle, req);
 
-  if (uv__fd_hash_get(fd, &fd_info)) {
+  if (uv__fd_hash_get(handle, &fd_info)) {
     fs__read_filemap(req, &fd_info);
     return;
   }
@@ -959,7 +921,6 @@ void fs__read(uv_fs_t* req) {
 
 void fs__write_filemap(uv_fs_t* req, HANDLE file,
                        struct uv__fd_info_s* fd_info) {
-  int fd = req->file.fd; /* VERIFY_FD done in fs__write */
   int force_append = fd_info->flags & UV_FS_O_APPEND;
   int rw_flags = fd_info->flags &
     (UV_FS_O_RDONLY | UV_FS_O_WRONLY | UV_FS_O_RDWR);
@@ -1018,12 +979,12 @@ void fs__write_filemap(uv_fs_t* req, HANDLE file,
       fd_info->mapping = INVALID_HANDLE_VALUE;
       fd_info->size.QuadPart = 0;
       fd_info->current_pos.QuadPart = 0;
-      uv__fd_hash_add(fd, fd_info);
+      uv__fd_hash_add(file, fd_info);
       return;
     }
 
     fd_info->size = end_pos;
-    uv__fd_hash_add(fd, fd_info);
+    uv__fd_hash_add(file, fd_info);
   }
 
   view_offset = pos.QuadPart % uv__allocation_granularity;
@@ -1072,7 +1033,7 @@ void fs__write_filemap(uv_fs_t* req, HANDLE file,
 
   if (req->fs.info.offset == -1) {
     fd_info->current_pos = end_pos;
-    uv__fd_hash_add(fd, fd_info);
+    uv__fd_hash_add(file, fd_info);
   }
 
   GetSystemTimeAsFileTime(&ft);
@@ -1099,7 +1060,7 @@ void fs__write(uv_fs_t* req) {
   zero_offset.QuadPart = 0;
   restore_position = 0;
 
-  if (uv__fd_hash_get(fd, &fd_info)) {
+  if (uv__fd_hash_get(handle, &fd_info)) {
     fs__write_filemap(req, handle, &fd_info);
     return;
   }
@@ -1328,7 +1289,6 @@ void fs__mkdtemp(uv_fs_t* req) {
 
 static int fs__mkstemp_func(uv_fs_t* req) {
   HANDLE file;
-  int fd;
 
   file = CreateFileW(req->file.pathw,
                      GENERIC_READ | GENERIC_WRITE,
@@ -1352,23 +1312,7 @@ static int fs__mkstemp_func(uv_fs_t* req) {
     return 0;
   }
 
-  fd = _open_osfhandle((intptr_t) file, 0);
-  if (fd < 0) {
-    /* The only known failure mode for _open_osfhandle() is EMFILE, in which
-     * case GetLastError() will return zero. However we'll try to handle other
-     * errors as well, should they ever occur.
-     */
-    if (errno == EMFILE)
-      SET_REQ_UV_ERROR(req, UV_EMFILE, ERROR_TOO_MANY_OPEN_FILES);
-    else if (GetLastError() != ERROR_SUCCESS)
-      SET_REQ_WIN32_ERROR(req, GetLastError());
-    else
-      SET_REQ_WIN32_ERROR(req, UV_UNKNOWN);
-    CloseHandle(file);
-    return 1;
-  }
-
-  SET_REQ_RESULT(req, fd);
+  SET_REQ_RESULT(req, (uintptr_t) file);
 
   return 1;
 }
@@ -1996,20 +1940,16 @@ static void fs__fdatasync(uv_fs_t* req) {
 
 
 static void fs__ftruncate(uv_fs_t* req) {
-<<<<<<< HEAD
-  HANDLE handle = req->file.hFile;
-=======
-  int fd = req->file.fd;
   HANDLE handle;
   struct uv__fd_info_s fd_info = { 0 };
->>>>>>> v1.42.0
   NTSTATUS status;
   IO_STATUS_BLOCK io_status;
   FILE_END_OF_FILE_INFORMATION eof_info;
 
+  handle = req->file.hFile;
   VERIFY_HANDLE(handle, req);
 
-  if (uv__fd_hash_get(fd, &fd_info)) {
+  if (uv__fd_hash_get(handle, &fd_info)) {
     if (fd_info.is_directory) {
       SET_REQ_WIN32_ERROR(req, ERROR_ACCESS_DENIED);
       return;
@@ -2038,7 +1978,7 @@ static void fs__ftruncate(uv_fs_t* req) {
       fd_info.mapping = INVALID_HANDLE_VALUE;
       fd_info.size.QuadPart = 0;
       fd_info.current_pos.QuadPart = 0;
-      uv__fd_hash_add(fd, &fd_info);
+      uv__fd_hash_add(handle, &fd_info);
       return;
     }
   }
@@ -2063,12 +2003,12 @@ static void fs__ftruncate(uv_fs_t* req) {
         fd_info.mapping = INVALID_HANDLE_VALUE;
         fd_info.size.QuadPart = 0;
         fd_info.current_pos.QuadPart = 0;
-        uv__fd_hash_add(fd, &fd_info);
+        uv__fd_hash_add(handle, &fd_info);
         return;
       }
     }
 
-    uv__fd_hash_add(fd, &fd_info);
+    uv__fd_hash_add(handle, &fd_info);
   }
 }
 
@@ -2312,6 +2252,7 @@ INLINE static int fs__utime_handle(HANDLE handle,
 }
 
 INLINE static DWORD fs__utime_impl_from_path(WCHAR* path,
+                                             double btime,
                                              double atime,
                                              double mtime,
                                              int do_lutime) {
@@ -2334,20 +2275,12 @@ INLINE static DWORD fs__utime_impl_from_path(WCHAR* path,
 
   if (handle == INVALID_HANDLE_VALUE) {
     ret = GetLastError();
-  } else if (fs__utime_handle(handle, atime, mtime) != 0) {
+  } else if (fs__utime_handle(handle, btime, atime, mtime) != 0) {
     ret = GetLastError();
   } else {
     ret = 0;
   }
 
-<<<<<<< HEAD
-  if (fs__utime_handle(handle,
-                       req->fs.time.btime,
-                       req->fs.time.atime,
-                       req->fs.time.mtime) != 0) {
-    SET_REQ_WIN32_ERROR(req, GetLastError());
-    CloseHandle(handle);
-=======
   CloseHandle(handle);
   return ret;
 }
@@ -2356,6 +2289,7 @@ INLINE static void fs__utime_impl(uv_fs_t* req, int do_lutime) {
   DWORD error;
 
   error = fs__utime_impl_from_path(req->file.pathw,
+                                   req->fs.time.btime,
                                    req->fs.time.atime,
                                    req->fs.time.mtime,
                                    do_lutime);
@@ -2371,7 +2305,6 @@ INLINE static void fs__utime_impl(uv_fs_t* req, int do_lutime) {
       SET_REQ_WIN32_ERROR(req, error);
     }
 
->>>>>>> v1.42.0
     return;
   }
 
@@ -3076,7 +3009,7 @@ int uv_fs_mkstemp(uv_loop_t* loop,
     return req->result;
   }
 
-  POST;
+  POST0;
 }
 
 

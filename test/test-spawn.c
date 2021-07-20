@@ -702,16 +702,7 @@ TEST_IMPL(spawn_tcp_server) {
   ASSERT(r == 0);
   r = uv_tcp_bind(&tcp_server, (const struct sockaddr*) &addr, 0);
   ASSERT(r == 0);
-<<<<<<< HEAD
-  r = uv_fileno((uv_handle_t*)&tcp_server, &fd);
-=======
-#ifdef _WIN32
-  r = uv_fileno((uv_handle_t*) &tcp_server, &handle);
-  fd = _open_osfhandle((intptr_t) handle, 0);
-#else
   r = uv_fileno((uv_handle_t*) &tcp_server, &fd);
- #endif
->>>>>>> v1.42.0
   ASSERT(r == 0);
 
   options.stdio = stdio;
@@ -1331,12 +1322,7 @@ TEST_IMPL(environment_creation) {
         found = 1;
       }
     }
-<<<<<<< HEAD
     if (prev) { /* verify sort order  */
-=======
-    if (prev) { /* verify sort order */
-#if !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
->>>>>>> v1.42.0
       ASSERT(CompareStringOrdinal(prev, -1, str, -1, TRUE) == 1);
     }
     ASSERT(found); /* verify that we expected this variable */
@@ -1688,13 +1674,9 @@ TEST_IMPL(spawn_auto_unref) {
 
 
 TEST_IMPL(spawn_fs_open) {
-<<<<<<< HEAD
-  int r, fd;
-=======
   int r;
   uv_os_fd_t fd;
   uv_os_fd_t dup_fd;
->>>>>>> v1.42.0
   uv_fs_t fs_req;
   uv_pipe_t in;
   uv_write_t write_req;
@@ -1709,15 +1691,9 @@ TEST_IMPL(spawn_fs_open) {
   const char dev_null[] = "/dev/null";
 #endif
 
-<<<<<<< HEAD
   r = uv_fs_open(NULL, &fs_req, "/dev/null", O_RDWR, 0, NULL);
   ASSERT(r == 0);
   fd = (uv_os_fd_t)fs_req.result;
-=======
-  r = uv_fs_open(NULL, &fs_req, dev_null, O_RDWR, 0, NULL);
-  ASSERT(r != -1);
-  fd = uv_get_osfhandle((uv_file) fs_req.result);
->>>>>>> v1.42.0
   uv_fs_req_cleanup(&fs_req);
 
   init_process_options("spawn_helper8", exit_cb);
@@ -1904,33 +1880,6 @@ TEST_IMPL(spawn_reads_child_path) {
   return 0;
 }
 
-<<<<<<< HEAD
-#ifndef _WIN32
-static int mpipe(int fds[2]) {
-  if (pipe(fds) == -1)
-    return -1;
-  if (fcntl(fds[0], F_SETFD, FD_CLOEXEC) == -1 ||
-      fcntl(fds[1], F_SETFD, FD_CLOEXEC) == -1) {
-    close(fds[0]);
-    close(fds[1]);
-    return -1;
-  }
-  return 0;
-}
-#else
-static int mpipe(HANDLE fds[2]) {
-  SECURITY_ATTRIBUTES attr;
-  attr.nLength = sizeof(attr);
-  attr.lpSecurityDescriptor = NULL;
-  attr.bInheritHandle = FALSE;
-  if (!CreatePipe(&fds[0], &fds[1], &attr, 0))
-    return -1;
-  return 0;
-}
-#endif /* !_WIN32 */
-
-=======
->>>>>>> v1.42.0
 TEST_IMPL(spawn_inherit_streams) {
   uv_process_t child_req;
   uv_stdio_container_t child_stdio[2];

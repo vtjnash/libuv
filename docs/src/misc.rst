@@ -46,17 +46,13 @@ Data types
         Replacement function for :man:`free(3)`.
         See :c:func:`uv_replace_allocator`.
 
-<<<<<<< HEAD
-.. c:type:: uv_os_fd_t
-=======
 .. c:type::  void (*uv_random_cb)(uv_random_t* req, int status, void* buf, size_t buflen)
 
     Callback passed to :c:func:`uv_random`. `status` is non-zero in case of
     error. The `buf` pointer is the same pointer that was passed to
     :c:func:`uv_random`.
 
-.. c:type:: uv_file
->>>>>>> v1.42.0
+.. c:type:: uv_os_fd_t
 
     Cross platform representation of a file handle.
     On Unix systems this is a `typedef` of `int` and on Windows a `HANDLE`.

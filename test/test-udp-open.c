@@ -298,8 +298,7 @@ TEST_IMPL(udp_open_connect) {
   MAKE_VALGRIND_HAPPY();
   return 0;
 }
-<<<<<<< HEAD
-=======
+
 
 #ifndef _WIN32
 TEST_IMPL(udp_send_unix) {
@@ -350,4 +349,3 @@ TEST_IMPL(udp_send_unix) {
   return 0;
 }
 #endif
->>>>>>> v1.42.0

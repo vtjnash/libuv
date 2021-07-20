@@ -208,11 +208,7 @@ API
 
     :returns: 0 on success, or an error code < 0 on failure.
 
-<<<<<<< HEAD
-    .. versionadded:: 2.0.0
-=======
     .. versionadded:: 1.27.0
->>>>>>> v1.42.0
 
 .. c:function:: int uv_udp_getpeername(const uv_udp_t* handle, struct sockaddr* name, int* namelen)
 
@@ -231,11 +227,7 @@ API
 
     :returns: 0 on success, or an error code < 0 on failure
 
-<<<<<<< HEAD
-    .. versionadded:: 2.0.0
-=======
     .. versionadded:: 1.27.0
->>>>>>> v1.42.0
 
 .. c:function:: int uv_udp_getsockname(const uv_udp_t* handle, struct sockaddr* name, int* namelen)
 
@@ -378,11 +370,7 @@ API
     .. versionchanged:: 1.19.0 added ``0.0.0.0`` and ``::`` to ``localhost``
         mapping
 
-<<<<<<< HEAD
-    .. versionchanged:: 2.0.0 added support for connected sockets
-=======
     .. versionchanged:: 1.27.0 added support for connected sockets
->>>>>>> v1.42.0
 
 .. c:function:: int uv_udp_try_send(uv_udp_t* handle, const uv_buf_t bufs[], unsigned int nbufs, const struct sockaddr* addr)
 
@@ -399,11 +387,7 @@ API
         < 0: negative error code (``UV_EAGAIN`` is returned when the message
         can't be sent immediately).
 
-<<<<<<< HEAD
-    .. versionchanged:: 2.0.0 added support for connected sockets
-=======
     .. versionchanged:: 1.27.0 added support for connected sockets
->>>>>>> v1.42.0
 
 .. c:function:: int uv_udp_recv_start(uv_udp_t* handle, uv_alloc_cb alloc_cb, uv_udp_recv_cb recv_cb)
 

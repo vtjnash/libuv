@@ -38,20 +38,6 @@
 # define TCP_KEEPALIVE 3
 #endif
 
-<<<<<<< HEAD
-=======
-#ifndef IPV6_V6ONLY
-# define IPV6_V6ONLY 27
-#endif
-
-#ifndef IPV6_HOPLIMIT
-# define IPV6_HOPLIMIT 21
-#endif
-
-#ifndef SIO_BASE_HANDLE
-# define SIO_BASE_HANDLE 0x48000022
-#endif
-
 #ifndef MCAST_JOIN_SOURCE_GROUP
 # define MCAST_JOIN_SOURCE_GROUP 45
 #endif
@@ -60,7 +46,6 @@
 # define MCAST_LEAVE_SOURCE_GROUP 46
 #endif
 
->>>>>>> v1.42.0
 /*
  * TDI defines that are only in the DDK.
  * We only need receive flags so far.

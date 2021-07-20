@@ -30,11 +30,8 @@
 #include "internal.h"
 
 #include <errno.h>
-<<<<<<< HEAD
 #include <math.h>
-=======
 #include <dlfcn.h>
->>>>>>> v1.42.0
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,8 +67,6 @@
 #endif
 
 #if defined(__APPLE__)
-<<<<<<< HEAD
-# include <copyfile.h>
 # include <sys/attr.h>
 
 static void uv__prepare_setattrlist_args(uv_fs_t* req,
@@ -115,9 +110,6 @@ static void uv__prepare_setattrlist_args(uv_fs_t* req,
     ++*size;
   }
 }
-=======
-# include <sys/sysctl.h>
->>>>>>> v1.42.0
 #elif defined(__linux__) && !defined(FICLONE)
 # include <sys/ioctl.h>
 # define FICLONE _IOW(0x94, 9, int)
@@ -153,11 +145,10 @@ extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
   do {                                                                        \
     if (req == NULL)                                                          \
       return UV_EINVAL;                                                       \
-    UV_REQ_INIT(req, UV_FS);                                                  \
+    UV_REQ_INIT(loop, req, UV_FS);                                            \
     req->fs_type = UV_FS_ ## subtype;                                         \
     req->result = 0;                                                          \
     req->ptr = NULL;                                                          \
-    req->loop = loop;                                                         \
     req->path = NULL;                                                         \
     req->new_path = NULL;                                                     \
     req->bufs = NULL;                                                         \
@@ -485,7 +476,7 @@ static ssize_t uv__fs_open(uv_fs_t* req) {
 
 
 #if !HAVE_PREADV
-static ssize_t uv__fs_preadv(uv_file fd,
+static ssize_t uv__fs_preadv(uv_os_fd_t fd,
                              uv_buf_t* bufs,
                              unsigned int nbufs,
                              off_t off) {
@@ -1283,16 +1274,10 @@ done:
 
 static ssize_t uv__fs_copyfile(uv_fs_t* req) {
   uv_fs_t fs_req;
-<<<<<<< HEAD
   uv_os_fd_t srcfd;
   uv_os_fd_t dstfd;
-  struct stat statsbuf;
-=======
-  uv_file srcfd;
-  uv_file dstfd;
   struct stat src_statsbuf;
   struct stat dst_statsbuf;
->>>>>>> v1.42.0
   int dst_flags;
   int result;
   int err;
@@ -1336,11 +1321,8 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
     goto out;
   }
 
-<<<<<<< HEAD
   dstfd = fs_req.result;
 
-  if (fchmod(dstfd, statsbuf.st_mode) == -1) {
-=======
   /* If the file is not being opened exclusively, verify that the source and
      destination are not the same file. If they are the same, bail out early. */
   if ((req->flags & UV_FS_COPYFILE_EXCL) == 0) {
@@ -1364,7 +1346,6 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
   }
 
   if (fchmod(dstfd, src_statsbuf.st_mode) == -1) {
->>>>>>> v1.42.0
     err = UV__ERR(errno);
 #ifdef __linux__
     if (err != UV_EPERM)
@@ -2025,7 +2006,7 @@ int uv_fs_mkstemp(uv_loop_t* loop,
   req->path = uv__strdup(tpl);
   if (req->path == NULL)
     return UV_ENOMEM;
-  POST;
+  POST0;
 }
 
 

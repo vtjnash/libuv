@@ -32,12 +32,14 @@
 
 #if defined(__APPLE__)          || \
     defined(_AIX)               || \
-    defined(__MVS__)            || \
     defined(__FreeBSD_kernel__) || \
     defined(__NetBSD__)         || \
     defined(__OpenBSD__)
   #define MULTICAST_ADDR "ff02::1%lo0"
   #define INTERFACE_ADDR "::1%lo0"
+#elif defined(__MVS__)
+  #define MULTICAST_ADDR "ff02::1%LOOPBACK6"
+  #define INTERFACE_ADDR "::1%LOOPBACK6"
 #else
   #define MULTICAST_ADDR "ff02::1"
   #define INTERFACE_ADDR NULL
@@ -185,26 +187,11 @@ TEST_IMPL(udp_multicast_join6) {
   r = uv_udp_bind(&server, (const struct sockaddr*) &addr, 0);
   ASSERT(r == 0);
 
-<<<<<<< HEAD
-  /* join the multicast channel */
-#if defined(__APPLE__)          || \
-    defined(_AIX)               || \
-    defined(__FreeBSD_kernel__) || \
-    defined(__NetBSD__)         || \
-    defined(__OpenBSD__)
-  r = uv_udp_set_membership(&client, "ff02::1", "::1%lo0", UV_JOIN_GROUP);
-#elif defined(__MVS__)
-  r = uv_udp_set_membership(&client, "ff02::1", "::1%LOOPBACK6", UV_JOIN_GROUP);
-#else
-  r = uv_udp_set_membership(&client, "ff02::1", NULL, UV_JOIN_GROUP);
-#endif
+  r = uv_udp_set_membership(&server, MULTICAST_ADDR, INTERFACE_ADDR, UV_JOIN_GROUP);
 
-#if defined(__MVS__)
+ #if defined(__MVS__)
   if (r == UV_EADDRNOTAVAIL) {
 #else
-=======
-  r = uv_udp_set_membership(&server, MULTICAST_ADDR, INTERFACE_ADDR, UV_JOIN_GROUP);
->>>>>>> v1.42.0
   if (r == UV_ENODEV) {
 #endif
     MAKE_VALGRIND_HAPPY();

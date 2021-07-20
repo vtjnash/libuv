@@ -55,19 +55,10 @@
 #undef NANOSEC
 #define NANOSEC ((uint64_t) 1e9)
 
-<<<<<<< HEAD
-/* Note: guard clauses should match uv_barrier_t's in include/uv/uv-unix.h. */
-#if defined(_AIX) || !defined(PTHREAD_BARRIER_SERIAL_THREAD)
-=======
-#if defined(PTHREAD_BARRIER_SERIAL_THREAD)
-STATIC_ASSERT(sizeof(uv_barrier_t) == sizeof(pthread_barrier_t));
-#endif
-
 /* Note: guard clauses should match uv_barrier_t's in include/uv/unix.h. */
 #if defined(_AIX) || \
     defined(__OpenBSD__) || \
     !defined(PTHREAD_BARRIER_SERIAL_THREAD)
->>>>>>> v1.42.0
 int uv_barrier_init(uv_barrier_t* barrier, unsigned int count) {
   int rc;
 
@@ -112,14 +103,8 @@ int uv_barrier_wait(uv_barrier_t* barrier) {
     while (barrier->in != 0);
   }
 
-<<<<<<< HEAD
   last = (--barrier->out == 0);
-  if (!last)
-    uv_cond_signal(&barrier->cond);  /* Not needed for last thread. */
-=======
-  last = (--b->out == 0);
-  uv_cond_signal(&b->cond);
->>>>>>> v1.42.0
+  uv_cond_signal(&barrier->cond);
 
   uv_mutex_unlock(&barrier->mutex);
   return last;
@@ -129,18 +114,11 @@ int uv_barrier_wait(uv_barrier_t* barrier) {
 void uv_barrier_destroy(uv_barrier_t* barrier) {
   uv_mutex_lock(&barrier->mutex);
 
-<<<<<<< HEAD
   assert(barrier->in == 0);
-  assert(barrier->out == 0);
+  while (barrier->out != 0)
+    uv_cond_wait(&barrier->cond, &barrier->mutex);
 
-  if (barrier->in != 0 || barrier->out != 0)
-=======
-  assert(b->in == 0);
-  while (b->out != 0)
-    uv_cond_wait(&b->cond, &b->mutex);
-
-  if (b->in != 0)
->>>>>>> v1.42.0
+  if (barrier->in != 0)
     abort();
 
   uv_mutex_unlock(&barrier->mutex);

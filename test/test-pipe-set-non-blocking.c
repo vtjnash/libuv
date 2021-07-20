@@ -23,7 +23,7 @@
 
 struct thread_ctx {
   uv_barrier_t barrier;
-  uv_file fd;
+  uv_os_fd_t fd;
 };
 
 static void thread_main(void* arg) {
@@ -75,7 +75,7 @@ TEST_IMPL(pipe_set_non_blocking) {
   size_t nwritten;
   char data[4096];
   uv_buf_t buf;
-  uv_file fd[2];
+  uv_os_fd_t fd[2];
   int n;
 #ifdef _WIN32
   uv_write_t write_req;

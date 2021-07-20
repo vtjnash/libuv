@@ -27,36 +27,15 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
-<<<<<<< HEAD
 #include <stdint.h>
-=======
 #include <string.h>
 #include <inttypes.h>
-
-#if defined(_MSC_VER) && _MSC_VER < 1600
-# include "uv/stdint-msvc2008.h"
-#else
-# include <stdint.h>
-#endif
->>>>>>> v1.42.0
 
 #if !defined(_WIN32)
 # include <sys/time.h>
 # include <sys/resource.h>  /* setrlimit() */
 #endif
 
-<<<<<<< HEAD
-=======
-#ifdef __clang__
-# pragma clang diagnostic ignored "-Wvariadic-macros"
-# pragma clang diagnostic ignored "-Wc99-extensions"
-#endif
-
-#ifdef __GNUC__
-# pragma GCC diagnostic ignored "-Wvariadic-macros"
-#endif
-
->>>>>>> v1.42.0
 #define TEST_PORT 9123
 #define TEST_PORT_2 9124
 #define TEST_PORT_3 9125

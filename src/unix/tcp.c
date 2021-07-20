@@ -308,8 +308,6 @@ int uv_tcp_getpeername(const uv_tcp_t* handle,
                              getpeername,
                              name,
                              namelen);
-<<<<<<< HEAD
-=======
 }
 
 
@@ -327,7 +325,6 @@ int uv_tcp_close_reset(uv_tcp_t* handle, uv_close_cb close_cb) {
 
   uv_close((uv_handle_t*) handle, close_cb);
   return 0;
->>>>>>> v1.42.0
 }
 
 

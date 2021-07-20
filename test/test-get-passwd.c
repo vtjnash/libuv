@@ -74,30 +74,18 @@ TEST_IMPL(get_passwd) {
   /* Test uv_os_free_passwd() */
   uv_os_free_passwd(&pwd);
 
-<<<<<<< HEAD
-  ASSERT(pwd.username == NULL);
-  ASSERT(pwd.shell == NULL);
-  ASSERT(pwd.homedir == NULL);
-  ASSERT(pwd.gecos == NULL);
-=======
   ASSERT_NULL(pwd.username);
   ASSERT_NULL(pwd.shell);
   ASSERT_NULL(pwd.homedir);
->>>>>>> v1.42.0
+  ASSERT_NULL(pwd.gecos);
 
   /* Test a double free */
   uv_os_free_passwd(&pwd);
 
-<<<<<<< HEAD
-  ASSERT(pwd.username == NULL);
-  ASSERT(pwd.shell == NULL);
-  ASSERT(pwd.homedir == NULL);
-  ASSERT(pwd.gecos == NULL);
-=======
   ASSERT_NULL(pwd.username);
   ASSERT_NULL(pwd.shell);
   ASSERT_NULL(pwd.homedir);
->>>>>>> v1.42.0
+  ASSERT_NULL(pwd.gecos);
 
   /* Test invalid input */
   r = uv_os_get_passwd(NULL);

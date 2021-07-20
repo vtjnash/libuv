@@ -78,7 +78,16 @@ Threads
 
     .. versionchanged:: 1.4.1 returns a UV_E* error code on failure
 
-<<<<<<< HEAD
+.. c:function:: int uv_thread_create_ex(uv_thread_t* tid, const uv_thread_options_t* params, uv_thread_cb entry, void* arg)
+
+    Like :c:func:`uv_thread_create`, but additionally specifies options for creating a new thread.
+
+    If `UV_THREAD_HAS_STACK_SIZE` is set, `stack_size` specifies a stack size for the new thread.
+    `0` indicates that the default value should be used, i.e. behaves as if the flag was not set.
+    Other values will be rounded up to the nearest page boundary.
+
+    .. versionadded:: 1.26.0
+
 .. c:function:: int uv_thread_setaffinity(uv_thread_t* tid, char* cpumask, char* oldmask, size_t mask_size)
 
     Sets the specified thread's affinity to cpumask, which is specified in
@@ -117,17 +126,6 @@ Threads
    Uses :man:`pthread_detach(3)` on Unix and CloseHandle() on Windows.
 
     .. versionadded:: 2.0.0
-=======
-.. c:function:: int uv_thread_create_ex(uv_thread_t* tid, const uv_thread_options_t* params, uv_thread_cb entry, void* arg)
-
-    Like :c:func:`uv_thread_create`, but additionally specifies options for creating a new thread.
-
-    If `UV_THREAD_HAS_STACK_SIZE` is set, `stack_size` specifies a stack size for the new thread.
-    `0` indicates that the default value should be used, i.e. behaves as if the flag was not set.
-    Other values will be rounded up to the nearest page boundary.
-
-    .. versionadded:: 1.26.0
->>>>>>> v1.42.0
 
 .. c:function:: uv_thread_t uv_thread_self(void)
 .. c:function:: int uv_thread_join(uv_thread_t *tid)

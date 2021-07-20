@@ -299,13 +299,6 @@ static void uv__fsevents_event_cb(const FSEventStreamRef streamRef,
         }
       }
 
-<<<<<<< HEAD
-      /* Ignore events with path equal to directory itself */
-      if (len == 0)
-        continue;
-
-=======
->>>>>>> v1.42.0
       /* Do not emit events from subdirectories (without option set) */
       if ((handle->cf_flags & UV_FS_EVENT_RECURSIVE) == 0 && *path != '\0') {
         pos = strchr(path + 1, '/');
@@ -321,21 +314,10 @@ static void uv__fsevents_event_cb(const FSEventStreamRef streamRef,
       memcpy(event->path, path, len + 1);
       event->events = UV_RENAME;
 
-<<<<<<< HEAD
-      if (0 != (flags & kFSEventsModified) &&
-          0 != (flags & kFSEventStreamEventFlagItemIsDir) &&
-          0 == (flags & kFSEventStreamEventFlagItemRenamed)) {
-        event->events = UV_CHANGE;
-      }
-      if (0 == (flags & kFSEventStreamEventFlagItemIsDir) &&
-          0 == (flags & kFSEventStreamEventFlagItemRenamed)) {
-        event->events = UV_CHANGE;
-=======
       if (0 == (flags & kFSEventsRenamed)) {
         if (0 != (flags & kFSEventsModified) ||
             0 == (flags & kFSEventStreamEventFlagItemIsDir))
           event->events = UV_CHANGE;
->>>>>>> v1.42.0
       }
 
       QUEUE_INSERT_TAIL(&head, &event->member);

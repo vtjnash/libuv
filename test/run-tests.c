@@ -273,7 +273,6 @@ static int maybe_run_test(int argc, char **argv) {
   }
 #endif  /* !_WIN32 */
 
-<<<<<<< HEAD
 #if !defined(NO_CPU_AFFINITY)
   if (strcmp(argv[1], "spawn_helper_affinity") == 0) {
     int i;
@@ -315,13 +314,12 @@ static int maybe_run_test(int argc, char **argv) {
     return 1;
   }
 #endif
-=======
+
   if (strcmp(argv[1], "process_title_big_argv_helper") == 0) {
     notify_parent_process();
     process_title_big_argv();
     return 0;
   }
->>>>>>> v1.42.0
 
   return run_test(argv[1], 0, 1);
 }

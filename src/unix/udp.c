@@ -428,10 +428,6 @@ static void uv__udp_sendmsg(uv_udp_t* handle) {
       h.msg_namelen = 0;
     } else {
       h.msg_name = &req->addr;
-<<<<<<< HEAD
-      h.msg_namelen = req->addr.ss_family == AF_INET6 ?
-        sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-=======
       if (req->addr.ss_family == AF_INET6)
         h.msg_namelen = sizeof(struct sockaddr_in6);
       else if (req->addr.ss_family == AF_INET)
@@ -442,7 +438,6 @@ static void uv__udp_sendmsg(uv_udp_t* handle) {
         assert(0 && "unsupported address family");
         abort();
       }
->>>>>>> v1.42.0
     }
     h.msg_iov = (struct iovec*) req->bufs;
     h.msg_iovlen = req->nbufs;

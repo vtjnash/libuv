@@ -147,6 +147,7 @@ test_run_tests_SOURCES = test/blackhole-server.c \
                          test/task.h \
                          test/test-active.c \
                          test/test-async.c \
+                         test/test-async-multi.c \
                          test/test-async-null-cb.c \
                          test/test-barrier.c \
                          test/test-buf.c \
@@ -342,13 +343,9 @@ test_run_tests_CFLAGS += -D_GNU_SOURCE
 endif
 
 if SUNOS
-<<<<<<< HEAD
-test_run_tests_CFLAGS += -D__EXTENSIONS__ -D_XOPEN_SOURCE=600
-=======
 test_run_tests_CFLAGS += -D__EXTENSIONS__ \
-                         -D_XOPEN_SOURCE=500 \
+                         -D_XOPEN_SOURCE=600 \
                          -D_REENTRANT
->>>>>>> v1.42.0
 endif
 
 if OS390
@@ -519,13 +516,9 @@ endif
 
 if SUNOS
 uvinclude_HEADERS += include/uv/sunos.h
-<<<<<<< HEAD
-libuv_la_CFLAGS += -D__EXTENSIONS__ -D_XOPEN_SOURCE=600
-=======
 libuv_la_CFLAGS += -D__EXTENSIONS__ \
-                   -D_XOPEN_SOURCE=500 \
+                   -D_XOPEN_SOURCE=600 \
                    -D_REENTRANT
->>>>>>> v1.42.0
 libuv_la_SOURCES += src/unix/no-proctitle.c \
                     src/unix/sunos.c
 endif

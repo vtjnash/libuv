@@ -86,7 +86,7 @@ enum {
   UV_HANDLE_WRITABLE                    = 0x00008000,
   UV_HANDLE_READ_PENDING                = 0x00010000,
   UV_HANDLE_SYNC_BYPASS_IOCP            = 0x00020000,
-  UV_HANDLE_ZERO_READ                   = 0x00040000,
+  /*UV_HANDLE_FLAG_UNUSED               = 0x00040000,*/
   UV_HANDLE_EMULATE_IOCP                = 0x00080000,
   UV_HANDLE_BLOCKING_WRITES             = 0x00100000,
   UV_HANDLE_CANCELLATION_PENDING        = 0x00200000,
@@ -104,10 +104,7 @@ enum {
   /* Only used by uv_udp_t handles. */
   UV_HANDLE_UDP_PROCESSING              = 0x01000000,
   UV_HANDLE_UDP_CONNECTED               = 0x02000000,
-<<<<<<< HEAD
-=======
   UV_HANDLE_UDP_RECVMMSG                = 0x04000000,
->>>>>>> v1.42.0
 
   /* Only used by uv_pipe_t handles. */
   UV_HANDLE_NON_OVERLAPPED_PIPE         = 0x01000000,
@@ -209,10 +206,6 @@ void uv__fs_scandir_cleanup(uv_fs_t* req);
 void uv__fs_readdir_cleanup(uv_fs_t* req);
 uv_dirent_type_t uv__fs_get_dirent_type(uv__dirent_t* dent);
 
-int uv__next_timeout(const uv_loop_t* loop);
-void uv__run_timers(uv_loop_t* loop);
-void uv__timer_close(uv_timer_t* handle);
-
 void uv__process_title_cleanup(void);
 void uv__signal_cleanup(void);
 void uv__threadpool_cleanup(void);
@@ -311,15 +304,17 @@ void uv__threadpool_cleanup(void);
  * a circular dependency between src/uv-common.h and src/win/internal.h.
  */
 #if defined(_WIN32)
-# define UV_REQ_INIT(req, typ)                                                \
+# define UV_REQ_INIT(loop_, req, typ)                                         \
   do {                                                                        \
+    (req)->loop = (loop_);                                                    \
     (req)->type = (typ);                                                      \
     (req)->u.io.overlapped.Internal = 0;  /* SET_REQ_SUCCESS() */             \
   }                                                                           \
   while (0)
 #else
-# define UV_REQ_INIT(req, typ)                                                \
+# define UV_REQ_INIT(loop_, req, typ)                                         \
   do {                                                                        \
+    (req)->loop = (loop_);                                                    \
     (req)->type = (typ);                                                      \
   }                                                                           \
   while (0)
@@ -327,7 +322,7 @@ void uv__threadpool_cleanup(void);
 
 #define uv__req_init(loop, req, typ)                                          \
   do {                                                                        \
-    UV_REQ_INIT(req, typ);                                                    \
+    UV_REQ_INIT(loop, req, typ);                                              \
     uv__req_register(loop, req);                                              \
   }                                                                           \
   while (0)
@@ -347,6 +342,17 @@ void uv__free(void* ptr);
 void* uv__realloc(void* ptr, size_t size);
 void* uv__reallocf(void* ptr, size_t size);
 
+/* Loop watcher prototypes */
+void uv__idle_close(uv_idle_t* handle);
+void uv__prepare_close(uv_prepare_t* handle);
+void uv__check_close(uv_check_t* handle);
+
+/* Timer prototypes */
+void uv__run_timers(uv_loop_t* loop);
+int uv__next_timeout(const uv_loop_t* loop);
+void uv__timer_close(uv_timer_t* handle);
+
+/* Metrics prototypes */
 typedef struct uv__loop_metrics_s uv__loop_metrics_t;
 typedef struct uv__loop_internal_fields_s uv__loop_internal_fields_t;
 
@@ -363,15 +369,5 @@ struct uv__loop_internal_fields_s {
   unsigned int flags;
   uv__loop_metrics_t loop_metrics;
 };
-
-/* Loop watcher prototypes */
-void uv__idle_close(uv_idle_t* handle);
-void uv__prepare_close(uv_prepare_t* handle);
-void uv__check_close(uv_check_t* handle);
-
-/* Timer prototypes */
-void uv__run_timers(uv_loop_t* loop);
-int uv__next_timeout(const uv_loop_t* loop);
-void uv__timer_close(uv_timer_t* handle);
 
 #endif /* UV_COMMON_H_ */

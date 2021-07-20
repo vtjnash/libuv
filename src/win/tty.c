@@ -2165,7 +2165,7 @@ int uv_tty_write(uv_loop_t* loop,
                  uv_write_cb cb) {
   DWORD error;
 
-  UV_REQ_INIT(req, UV_WRITE);
+  UV_REQ_INIT(loop, req, UV_WRITE);
   req->handle = (uv_stream_t*) handle;
   req->cb = cb;
 

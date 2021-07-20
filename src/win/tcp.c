@@ -468,7 +468,6 @@ static void uv_tcp_queue_read(uv_loop_t* loop, uv_tcp_t* handle) {
 
   req = &handle->read_req;
   memset(&req->u.io.overlapped, 0, sizeof(req->u.io.overlapped));
-  handle->flags |= UV_HANDLE_ZERO_READ;
   buf.base = "";
   buf.len = 0;
 
@@ -586,7 +585,7 @@ int uv_tcp_listen(uv_tcp_t* handle, int backlog, uv_connection_cb cb) {
 
     for (i = 0; i < simultaneous_accepts; i++) {
       req = &handle->tcp.serv.accept_reqs[i];
-      UV_REQ_INIT(req, UV_ACCEPT);
+      UV_REQ_INIT(handle->loop, req, UV_ACCEPT);
       req->accept_socket = INVALID_SOCKET;
       req->data = handle;
 
@@ -608,7 +607,7 @@ int uv_tcp_listen(uv_tcp_t* handle, int backlog, uv_connection_cb cb) {
      * {uv_simultaneous_server_accepts} requests. */
     for (i = simultaneous_accepts; i < uv_simultaneous_server_accepts; i++) {
       req = &handle->tcp.serv.accept_reqs[i];
-      UV_REQ_INIT(req, UV_ACCEPT);
+      UV_REQ_INIT(handle->loop, req, UV_ACCEPT);
       req->accept_socket = INVALID_SOCKET;
       req->data = handle;
       req->wait_handle = INVALID_HANDLE_VALUE;
@@ -808,7 +807,7 @@ static int uv_tcp_try_connect(uv_connect_t* req,
 
 out:
 
-  UV_REQ_INIT(req, UV_CONNECT);
+  UV_REQ_INIT(loop, req, UV_CONNECT);
   req->handle = (uv_stream_t*) handle;
   req->cb = cb;
   memset(&req->u.io.overlapped, 0, sizeof(req->u.io.overlapped));
@@ -879,7 +878,7 @@ int uv_tcp_write(uv_loop_t* loop,
   int result;
   DWORD bytes;
 
-  UV_REQ_INIT(req, UV_WRITE);
+  UV_REQ_INIT(loop, req, UV_WRITE);
   req->handle = (uv_stream_t*) handle;
   req->cb = cb;
 
@@ -973,12 +972,10 @@ void uv_process_tcp_read_req(uv_loop_t* loop, uv_tcp_t* handle,
 
   if (!REQ_SUCCESS(req)) {
     /* An error occurred doing the read. */
-    if ((handle->flags & UV_HANDLE_READING) ||
-        !(handle->flags & UV_HANDLE_ZERO_READ)) {
+    if ((handle->flags & UV_HANDLE_READING) != 0) {
       handle->flags &= ~UV_HANDLE_READING;
       DECREASE_ACTIVE_COUNT(loop, handle);
-      buf = (handle->flags & UV_HANDLE_ZERO_READ) ?
-            uv_buf_init(NULL, 0) : handle->tcp.conn.read_buffer;
+      buf = uv_buf_init(NULL, 0);
 
       err = GET_REQ_SOCK_ERROR(req);
 
@@ -994,32 +991,6 @@ void uv_process_tcp_read_req(uv_loop_t* loop, uv_tcp_t* handle,
                       &buf);
     }
   } else {
-    if (!(handle->flags & UV_HANDLE_ZERO_READ)) {
-      /* The read was done with a non-zero buffer length. */
-      if (req->u.io.overlapped.InternalHigh > 0) {
-        /* Successful read */
-        handle->read_cb((uv_stream_t*)handle,
-                        req->u.io.overlapped.InternalHigh,
-                        &handle->tcp.conn.read_buffer);
-        /* Read again only if bytes == buf.len */
-        if (req->u.io.overlapped.InternalHigh < handle->tcp.conn.read_buffer.len) {
-          goto done;
-        }
-      } else {
-        /* Connection closed */
-        if (handle->flags & UV_HANDLE_READING) {
-          handle->flags &= ~UV_HANDLE_READING;
-          DECREASE_ACTIVE_COUNT(loop, handle);
-        }
-        handle->flags &= ~UV_HANDLE_READABLE;
-
-        buf.base = 0;
-        buf.len = 0;
-        handle->read_cb((uv_stream_t*)handle, UV_EOF, &handle->tcp.conn.read_buffer);
-        goto done;
-      }
-    }
-
     /* Do nonblocking reads until the buffer is empty */
     count = 32;
     while ((handle->flags & UV_HANDLE_READING) && (count-- > 0)) {
@@ -1079,7 +1050,6 @@ void uv_process_tcp_read_req(uv_loop_t* loop, uv_tcp_t* handle,
       }
     }
 
-done:
     /* Post another read if still reading and not closing. */
     if ((handle->flags & UV_HANDLE_READING) &&
         !(handle->flags & UV_HANDLE_READ_PENDING)) {

@@ -150,6 +150,11 @@ API
     no longer be called.
 
     This function is idempotent and may be safely called on a stopped stream.
+    
+    This function will always succeed; hence, checking its return value is
+    unnecessary. A non-zero return indicates that finishing releasing resources
+    may be pending on the next input event on that TTY on Windows, and does not 
+    indicate failure.
 
     This function will always succeed; hence, checking its return value is
     unnecessary. A non-zero return indicates that finishing releasing resources

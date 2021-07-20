@@ -45,7 +45,10 @@ extern char **environ;
 # include <grp.h>
 #endif
 
-<<<<<<< HEAD
+#if defined(__MVS__)
+# include "zos-base.h"
+#endif
+
 #if defined(__linux__)
 # define uv__cpu_set_t cpu_set_t
 #elif defined(__FreeBSD__)
@@ -54,12 +57,6 @@ extern char **environ;
 # include <pthread_np.h>
 # define uv__cpu_set_t cpuset_t
 #endif
-=======
-#if defined(__MVS__)
-# include "zos-base.h"
-#endif
-
->>>>>>> v1.42.0
 
 static void uv__chld(uv_signal_t* handle, int signum) {
   uv_process_t* process;

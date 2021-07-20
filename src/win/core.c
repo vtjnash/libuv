@@ -82,6 +82,9 @@ static void uv_init(void) {
   /* Initialize winsock */
   uv_winsock_init();
 
+  /* Initialize FS */
+  uv_fs_init();
+
   /* Initialize signal stuff */
   uv_signals_init();
 
@@ -108,11 +111,7 @@ void uv_update_time(uv_loop_t* loop) {
 
 
 int uv_loop_init(uv_loop_t* loop) {
-<<<<<<< HEAD
-=======
   uv__loop_internal_fields_t* lfields;
-  struct heap* timer_heap;
->>>>>>> v1.42.0
   int err;
 
   /* Initialize libuv itself first */
@@ -155,7 +154,7 @@ int uv_loop_init(uv_loop_t* loop) {
   QUEUE_INIT(&loop->idle_handles);
 
   QUEUE_INIT(&loop->async_handles);
-  UV_REQ_INIT(&loop->async_req, UV_WAKEUP);
+  UV_REQ_INIT(loop, &loop->async_req, UV_WAKEUP);
 
   memset(&loop->poll_peer_sockets, 0, sizeof loop->poll_peer_sockets);
 
@@ -181,18 +180,11 @@ fail_async_init:
   uv_mutex_destroy(&loop->wq_mutex);
 
 fail_mutex_init:
-<<<<<<< HEAD
-=======
-  uv__free(timer_heap);
-  loop->timer_heap = NULL;
-
-fail_timers_alloc:
   uv_mutex_destroy(&lfields->loop_metrics.lock);
 
 fail_metrics_mutex_init:
   uv__free(lfields);
   loop->internal_fields = NULL;
->>>>>>> v1.42.0
   CloseHandle(loop->iocp);
   loop->iocp = INVALID_HANDLE_VALUE;
 
@@ -234,17 +226,11 @@ void uv__loop_close(uv_loop_t* loop) {
   uv_mutex_unlock(&loop->wq_mutex);
   uv_mutex_destroy(&loop->wq_mutex);
 
-<<<<<<< HEAD
-=======
-  uv__free(loop->timer_heap);
-  loop->timer_heap = NULL;
-
   lfields = uv__get_internal_fields(loop);
   uv_mutex_destroy(&lfields->loop_metrics.lock);
   uv__free(lfields);
   loop->internal_fields = NULL;
 
->>>>>>> v1.42.0
   CloseHandle(loop->iocp);
 }
 
@@ -379,6 +365,7 @@ static void uv__poll(uv_loop_t* loop, int timeout) {
   ULONG i;
   int repeat;
   uint64_t timeout_time;
+  BOOL gotwakeup = FALSE;
   uint64_t user_timeout;
   int reset_timeout;
 
@@ -425,6 +412,16 @@ static void uv__poll(uv_loop_t* loop, int timeout) {
          */
         if (overlappeds[i].lpOverlapped) {
           req = container_of(overlappeds[i].lpOverlapped, uv_req_t, u.io.overlapped);
+          /* If multiple async handles were triggered we might end up with
+           * multiple UV_WAKEUP requests (IOCP completion events). They all
+           * share the same req however, so we need to be careful to only make
+           * it pending once.
+           */
+          if (req->type == UV_WAKEUP) {
+            if (gotwakeup)
+              continue;
+            gotwakeup = TRUE;
+          }
           uv_insert_pending_req(loop, req);
         }
       }
@@ -498,9 +495,6 @@ int uv_run(uv_loop_t *loop, uv_run_mode mode) {
     else
       uv__poll_wine(loop, timeout);
 
-<<<<<<< HEAD
-    uv__run_check(loop);
-=======
     /* Run one final update on the provider_idle_time in case uv__poll*
      * returned because the timeout expired, but no events were received. This
      * call will be ignored if the provider_entry_time was either never set (if
@@ -508,8 +502,7 @@ int uv_run(uv_loop_t *loop, uv_run_mode mode) {
      */
     uv__metrics_update_idle_time(loop);
 
-    uv_check_invoke(loop);
->>>>>>> v1.42.0
+    uv__run_check(loop);
     uv_process_endgames(loop);
 
     if (mode == UV_RUN_ONCE) {
@@ -603,18 +596,12 @@ int uv__socket_sockopt(uv_handle_t* handle, int optname, int* value) {
   return 0;
 }
 
-<<<<<<< HEAD
 
-=======
->>>>>>> v1.42.0
 int uv_cpumask_size(void) {
   return (int)(sizeof(DWORD_PTR) * 8);
 }
 
-<<<<<<< HEAD
 
-=======
->>>>>>> v1.42.0
 int uv__getsockpeername(const uv_handle_t* handle,
                         uv__peersockfunc func,
                         struct sockaddr* name,

@@ -192,9 +192,8 @@ Public members
         This is not supported on Windows, :c:func:`uv_spawn` will fail and set the error
         to ``UV_ENOTSUP``.
 
-<<<<<<< HEAD
-.. c:member:: uv_process_options_t.cpumask
-.. c:member:: uv_process_options_t.cpumask_size
+.. c:member:: char* uv_process_options_t.cpumask
+.. c:member:: size_t uv_process_options_t.cpumask_size
 
     Libuv can set the child process' CPU affinity mask.  This happens when
     `cpumask` is non-NULL.  It must point to an array of char values
@@ -210,20 +209,13 @@ Public members
 
     .. versionadded:: 2.0.0
 
-.. c:member:: uv_stdio_container_t.flags
-=======
 .. c:member:: uv_stdio_flags uv_stdio_container_t.flags
->>>>>>> v1.42.0
 
     Flags specifying how the stdio container should be passed to the child.
 
 .. c:member:: union @0 uv_stdio_container_t.data
 
-<<<<<<< HEAD
-    Union containing either the stream or fd handle to be passed on to the child
-=======
     Union containing either the `stream` or `fd` to be passed on to the child
->>>>>>> v1.42.0
     process.
 
 

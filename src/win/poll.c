@@ -404,51 +404,7 @@ static void uv__slow_poll_process_poll_req(uv_loop_t* loop, uv_poll_t* handle,
 }
 
 
-<<<<<<< HEAD
-static int uv__slow_poll_set(uv_loop_t* loop, uv_poll_t* handle, int events) {
-  assert(handle->type == UV_POLL);
-  assert(!(handle->flags & UV_HANDLE_CLOSING));
-  assert((events & ~(UV_READABLE | UV_WRITABLE)) == 0);
-
-  handle->events = events;
-
-  if (handle->events != 0) {
-    uv__handle_start(handle);
-  } else {
-    uv__handle_stop(handle);
-  }
-
-  if ((handle->events &
-      ~(handle->submitted_events_1 | handle->submitted_events_2)) != 0) {
-    uv__slow_poll_submit_poll_req(handle->loop, handle);
-  }
-
-  return 0;
-}
-
-
-static int uv__slow_poll_close(uv_loop_t* loop, uv_poll_t* handle) {
-  handle->events = 0;
-  uv__handle_closing(handle);
-
-  if (handle->submitted_events_1 == 0 &&
-      handle->submitted_events_2 == 0) {
-    uv_want_endgame(loop, (uv_handle_t*) handle);
-  }
-
-  return 0;
-}
-
-
 int uv_poll_init(uv_loop_t* loop, uv_poll_t* handle,
-=======
-int uv_poll_init(uv_loop_t* loop, uv_poll_t* handle, int fd) {
-  return uv_poll_init_socket(loop, handle, (SOCKET) uv__get_osfhandle(fd));
-}
-
-
-int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle,
->>>>>>> v1.42.0
     uv_os_sock_t socket) {
   WSAPROTOCOL_INFOW protocol_info;
   int len;
@@ -508,11 +464,11 @@ int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle,
 
   /* Initialize 2 poll reqs. */
   handle->submitted_events_1 = 0;
-  UV_REQ_INIT(&handle->poll_req_1, UV_POLL_REQ);
+  UV_REQ_INIT(loop, &handle->poll_req_1, UV_POLL_REQ);
   handle->poll_req_1.data = handle;
 
   handle->submitted_events_2 = 0;
-  UV_REQ_INIT(&handle->poll_req_2, UV_POLL_REQ);
+  UV_REQ_INIT(loop, &handle->poll_req_2, UV_POLL_REQ);
   handle->poll_req_2.data = handle;
 
   return 0;

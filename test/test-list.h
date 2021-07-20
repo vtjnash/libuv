@@ -186,13 +186,10 @@ TEST_DECLARE   (udp_open)
 TEST_DECLARE   (udp_open_twice)
 TEST_DECLARE   (udp_open_bound)
 TEST_DECLARE   (udp_open_connect)
-<<<<<<< HEAD
-=======
 #ifndef _WIN32
 TEST_DECLARE   (udp_send_unix)
 #endif
 TEST_DECLARE   (udp_sendmmsg_error)
->>>>>>> v1.42.0
 TEST_DECLARE   (udp_try_send)
 TEST_DECLARE   (pipe_bind_error_addrinuse)
 TEST_DECLARE   (pipe_bind_error_addrnotavail)
@@ -275,6 +272,7 @@ TEST_DECLARE   (has_ref)
 TEST_DECLARE   (active)
 TEST_DECLARE   (embed)
 TEST_DECLARE   (async)
+TEST_DECLARE   (async_multi)
 TEST_DECLARE   (async_null_cb)
 TEST_DECLARE   (eintr_handling)
 TEST_DECLARE   (get_currentexe)
@@ -376,15 +374,11 @@ TEST_DECLARE   (fs_open_flags)
 TEST_DECLARE   (fs_fd_hash)
 #endif
 TEST_DECLARE   (fs_utime)
-<<<<<<< HEAD
 TEST_DECLARE   (fs_utime_ex)
-TEST_DECLARE   (fs_futime)
-TEST_DECLARE   (fs_futime_ex)
-=======
 TEST_DECLARE   (fs_utime_round)
 TEST_DECLARE   (fs_futime)
+TEST_DECLARE   (fs_futime_ex)
 TEST_DECLARE   (fs_lutime)
->>>>>>> v1.42.0
 TEST_DECLARE   (fs_file_open_append)
 TEST_DECLARE   (fs_statfs)
 TEST_DECLARE   (fs_stat_missing_path)
@@ -789,13 +783,9 @@ TASK_LIST_START
   TEST_ENTRY  (udp_open_twice)
   TEST_ENTRY  (udp_open_bound)
   TEST_ENTRY  (udp_open_connect)
-<<<<<<< HEAD
-  TEST_HELPER (udp_open_connect, udp4_echo_server)
-=======
 #ifndef _WIN32
   TEST_ENTRY  (udp_send_unix)
 #endif
->>>>>>> v1.42.0
 
   TEST_ENTRY  (pipe_bind_error_addrinuse)
   TEST_ENTRY  (pipe_bind_error_addrnotavail)
@@ -892,6 +882,7 @@ TASK_LIST_START
   TEST_ENTRY  (embed)
 
   TEST_ENTRY  (async)
+  TEST_ENTRY  (async_multi)
   TEST_ENTRY  (async_null_cb)
   TEST_ENTRY  (eintr_handling)
 
@@ -1047,15 +1038,11 @@ TASK_LIST_START
 #endif
   TEST_ENTRY  (fs_chown)
   TEST_ENTRY  (fs_utime)
-<<<<<<< HEAD
   TEST_ENTRY  (fs_utime_ex)
-  TEST_ENTRY  (fs_futime)
-  TEST_ENTRY  (fs_futime_ex)
-=======
   TEST_ENTRY  (fs_utime_round)
   TEST_ENTRY  (fs_futime)
+  TEST_ENTRY  (fs_futime_ex)
   TEST_ENTRY  (fs_lutime)
->>>>>>> v1.42.0
   TEST_ENTRY  (fs_readlink)
   TEST_ENTRY  (fs_realpath)
   TEST_ENTRY  (fs_symlink)
@@ -1125,13 +1112,8 @@ TASK_LIST_START
   TEST_ENTRY  (fs_fchmod_archive_readonly)
   TEST_ENTRY  (fs_invalid_mkdir_name)
 #endif
-<<<<<<< HEAD
-=======
   TEST_ENTRY  (fs_get_system_error)
-  TEST_ENTRY  (get_osfhandle_valid_handle)
-  TEST_ENTRY  (open_osfhandle_valid_handle)
   TEST_ENTRY  (strscpy)
->>>>>>> v1.42.0
   TEST_ENTRY  (threadpool_queue_work_simple)
   TEST_ENTRY  (threadpool_queue_work_einval)
   TEST_ENTRY_CUSTOM (threadpool_multiple_event_loops, 0, 0, 60000)

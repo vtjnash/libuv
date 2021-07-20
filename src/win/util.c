@@ -22,7 +22,8 @@
 #include <assert.h>
 #include <direct.h>
 #include <limits.h>
-#include <wchar.h>
+#include <wchar.h> /* wmemcmp */
+#include <stdio.h>
 
 #include "uv.h"
 #include "internal.h"
@@ -754,82 +755,6 @@ int uv_cpu_info(uv_cpu_info_t** cpu_infos_ptr, int* cpu_count_ptr) {
   uv__free(sppi);
 
   return uv_translate_sys_error(err);
-}
-
-
-<<<<<<< HEAD
-void uv_free_cpu_info(uv_cpu_info_t* cpu_infos, int count) {
-  int i;
-
-  for (i = 0; i < count; i++) {
-    uv__free(cpu_infos[i].model);
-  }
-
-  uv__free(cpu_infos);
-=======
-static int is_windows_version_or_greater(DWORD os_major,
-                                         DWORD os_minor,
-                                         WORD service_pack_major,
-                                         WORD service_pack_minor) {
-  OSVERSIONINFOEX osvi;
-  DWORDLONG condition_mask = 0;
-  int op = VER_GREATER_EQUAL;
-
-  /* Initialize the OSVERSIONINFOEX structure. */
-  ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
-  osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-  osvi.dwMajorVersion = os_major;
-  osvi.dwMinorVersion = os_minor;
-  osvi.wServicePackMajor = service_pack_major;
-  osvi.wServicePackMinor = service_pack_minor;
-
-  /* Initialize the condition mask. */
-  VER_SET_CONDITION(condition_mask, VER_MAJORVERSION, op);
-  VER_SET_CONDITION(condition_mask, VER_MINORVERSION, op);
-  VER_SET_CONDITION(condition_mask, VER_SERVICEPACKMAJOR, op);
-  VER_SET_CONDITION(condition_mask, VER_SERVICEPACKMINOR, op);
-
-  /* Perform the test. */
-  return (int) VerifyVersionInfo(
-    &osvi,
-    VER_MAJORVERSION | VER_MINORVERSION |
-    VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
-    condition_mask);
-}
-
-
-static int address_prefix_match(int family,
-                                struct sockaddr* address,
-                                struct sockaddr* prefix_address,
-                                int prefix_len) {
-  uint8_t* address_data;
-  uint8_t* prefix_address_data;
-  int i;
-
-  assert(address->sa_family == family);
-  assert(prefix_address->sa_family == family);
-
-  if (family == AF_INET6) {
-    address_data = (uint8_t*) &(((struct sockaddr_in6 *) address)->sin6_addr);
-    prefix_address_data =
-      (uint8_t*) &(((struct sockaddr_in6 *) prefix_address)->sin6_addr);
-  } else {
-    address_data = (uint8_t*) &(((struct sockaddr_in *) address)->sin_addr);
-    prefix_address_data =
-      (uint8_t*) &(((struct sockaddr_in *) prefix_address)->sin_addr);
-  }
-
-  for (i = 0; i < prefix_len >> 3; i++) {
-    if (address_data[i] != prefix_address_data[i])
-      return 0;
-  }
-
-  if (prefix_len % 8)
-    return prefix_address_data[i] ==
-      (address_data[i] & (0xff << (8 - prefix_len % 8)));
-
-  return 1;
->>>>>>> v1.42.0
 }
 
 

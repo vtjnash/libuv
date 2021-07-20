@@ -327,8 +327,6 @@ int uv__getsockpeername(const uv_handle_t* handle,
                         struct sockaddr* name,
                         int* namelen);
 
-<<<<<<< HEAD
-=======
 #if defined(__linux__)            ||                                      \
     defined(__FreeBSD__)          ||                                      \
     defined(__FreeBSD_kernel__)   ||                                       \
@@ -352,5 +350,4 @@ size_t strnlen(const char* s, size_t maxlen);
 #endif
 
 
->>>>>>> v1.42.0
 #endif /* UV_UNIX_INTERNAL_H_ */

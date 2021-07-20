@@ -397,6 +397,7 @@ UV_EXTERN char* uv_err_name_r(int err, char* buf, size_t buflen);
   /* public */                                                                \
   void* data;                                                                 \
   /* read-only */                                                             \
+  uv_loop_t* loop;                                                            \
   uv_req_type type;                                                           \
   /* private */                                                               \
   void* reserved[6];                                                          \
@@ -450,6 +451,7 @@ UV_EXTERN void uv_handle_set_data(uv_handle_t* handle, void* data);
 UV_EXTERN size_t uv_req_size(uv_req_type type);
 UV_EXTERN void* uv_req_get_data(const uv_req_t* req);
 UV_EXTERN void uv_req_set_data(uv_req_t* req, void* data);
+UV_EXTERN uv_loop_t* uv_req_get_loop(const uv_req_t* handle);
 UV_EXTERN uv_req_type uv_req_get_type(const uv_req_t* req);
 UV_EXTERN const char* uv_req_type_name(uv_req_type type);
 
@@ -799,9 +801,6 @@ typedef enum {
   UV_TTY_MODE_IO
 } uv_tty_mode_t;
 
-<<<<<<< HEAD
-UV_EXTERN int uv_tty_init(uv_loop_t*, uv_tty_t*, uv_os_fd_t fd, int readable);
-=======
 typedef enum {
   /*
    * The console supports handling of virtual terminal sequences
@@ -814,9 +813,7 @@ typedef enum {
   UV_TTY_UNSUPPORTED
 } uv_tty_vtermstate_t;
 
-
-UV_EXTERN int uv_tty_init(uv_loop_t*, uv_tty_t*, uv_file fd, int readable);
->>>>>>> v1.42.0
+UV_EXTERN int uv_tty_init(uv_loop_t*, uv_tty_t*, uv_os_fd_t fd, int readable);
 UV_EXTERN int uv_tty_set_mode(uv_tty_t*, uv_tty_mode_t mode);
 UV_EXTERN int uv_tty_reset_mode(void);
 UV_EXTERN int uv_tty_get_winsize(uv_tty_t*, int* width, int* height);
@@ -958,7 +955,6 @@ UV_EXTERN uint64_t uv_timer_get_due_in(const uv_timer_t* handle);
 struct uv_getaddrinfo_s {
   UV_REQ_FIELDS
   /* read-only */
-  uv_loop_t* loop;
   /* struct addrinfo* addrinfo is marked as private, but it really isn't. */
   UV_GETADDRINFO_PRIVATE_FIELDS
 };
@@ -981,7 +977,6 @@ UV_EXTERN void uv_freeaddrinfo(struct addrinfo* ai);
 struct uv_getnameinfo_s {
   UV_REQ_FIELDS
   /* read-only */
-  uv_loop_t* loop;
   /* host and service are marked as private, but they really aren't. */
   UV_GETNAMEINFO_PRIVATE_FIELDS
 };
@@ -1157,7 +1152,6 @@ UV_EXTERN uv_pid_t uv_process_get_pid(const uv_process_t*);
  */
 struct uv_work_s {
   UV_REQ_FIELDS
-  uv_loop_t* loop;
   uv_work_cb work_cb;
   uv_after_work_cb after_work_cb;
   UV_WORK_PRIVATE_FIELDS
@@ -1378,18 +1372,13 @@ typedef enum {
   UV_FS_FCHOWN,
   UV_FS_LCHOWN,
   UV_FS_REALPATH,
-<<<<<<< HEAD
-  UV_FS_COPYFILE
-=======
   UV_FS_COPYFILE,
-  UV_FS_LCHOWN,
   UV_FS_OPENDIR,
   UV_FS_READDIR,
   UV_FS_CLOSEDIR,
   UV_FS_STATFS,
   UV_FS_MKSTEMP,
   UV_FS_LUTIME
->>>>>>> v1.42.0
 } uv_fs_type;
 
 struct uv_dir_s {
@@ -1403,7 +1392,6 @@ struct uv_dir_s {
 struct uv_fs_s {
   UV_REQ_FIELDS
   uv_fs_type fs_type;
-  uv_loop_t* loop;
   uv_fs_cb cb;
   ssize_t result;
   void* ptr;
@@ -1570,7 +1558,6 @@ UV_EXTERN int uv_fs_futime(uv_loop_t* loop,
                            double atime,
                            double mtime,
                            uv_fs_cb cb);
-<<<<<<< HEAD
 UV_EXTERN int uv_fs_futime_ex(uv_loop_t* loop,
                               uv_fs_t* req,
                               uv_os_fd_t file,
@@ -1578,14 +1565,12 @@ UV_EXTERN int uv_fs_futime_ex(uv_loop_t* loop,
                               double atime,
                               double mtime,
                               uv_fs_cb cb);
-=======
 UV_EXTERN int uv_fs_lutime(uv_loop_t* loop,
                            uv_fs_t* req,
                            const char* path,
                            double atime,
                            double mtime,
                            uv_fs_cb cb);
->>>>>>> v1.42.0
 UV_EXTERN int uv_fs_lstat(uv_loop_t* loop,
                           uv_fs_t* req,
                           const char* path,
@@ -1757,8 +1742,6 @@ UV_EXTERN int uv_inet_pton(int af, const char* src, void* dst);
 
 struct uv_random_s {
   UV_REQ_FIELDS
-  /* read-only */
-  uv_loop_t* loop;
   /* private */
   int status;
   void* buf;
@@ -1857,16 +1840,6 @@ UV_EXTERN int uv_gettimeofday(uv_timeval64_t* tv);
 typedef void (*uv_thread_cb)(void* arg);
 
 UV_EXTERN int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg);
-<<<<<<< HEAD
-UV_EXTERN int uv_thread_setaffinity(uv_thread_t* tid,
-                                    char* cpumask,
-                                    char* oldmask,
-                                    size_t mask_size);
-UV_EXTERN int uv_thread_getaffinity(uv_thread_t* tid,
-                                    char* cpumask,
-                                    size_t mask_size);
-UV_EXTERN int uv_thread_detach(uv_thread_t* tid);
-=======
 
 typedef enum {
   UV_THREAD_NO_FLAGS = 0x00,
@@ -1885,9 +1858,16 @@ UV_EXTERN int uv_thread_create_ex(uv_thread_t* tid,
                                   const uv_thread_options_t* params,
                                   uv_thread_cb entry,
                                   void* arg);
->>>>>>> v1.42.0
-UV_EXTERN uv_thread_t uv_thread_self(void);
+UV_EXTERN int uv_thread_setaffinity(uv_thread_t* tid,
+                                    char* cpumask,
+                                    char* oldmask,
+                                    size_t mask_size);
+UV_EXTERN int uv_thread_getaffinity(uv_thread_t* tid,
+                                    char* cpumask,
+                                    size_t mask_size);
+UV_EXTERN int uv_thread_detach(uv_thread_t* tid);
 UV_EXTERN int uv_thread_join(uv_thread_t* tid);
+UV_EXTERN uv_thread_t uv_thread_self(void);
 UV_EXTERN int uv_thread_equal(const uv_thread_t* t1, const uv_thread_t* t2);
 
 /* The presence of these unions force similar struct layout. */

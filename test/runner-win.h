@@ -20,15 +20,10 @@
  */
 
 
-#ifdef _MSC_VER
 /* Don't complain about write(), fileno() etc. being deprecated. */
 #ifdef _MSC_VER
 #pragma warning(disable : 4996)
 #endif
-<<<<<<< HEAD
-=======
-
->>>>>>> v1.42.0
 
 #include <winsock2.h>
 #include <windows.h>

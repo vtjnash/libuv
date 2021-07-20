@@ -3,13 +3,8 @@
 |  System | Support type | Supported versions | Notes |
 |---|---|---|---|
 | GNU/Linux | Tier 1 | Linux >= 2.6.32 with glibc >= 2.12 | |
-<<<<<<< HEAD
 | macOS | Tier 1 | macOS >= 10.9 | |
-| Windows | Tier 1 | Windows >= Vista | MSVC 2015 and later are supported |
-=======
-| macOS | Tier 1 | macOS >= 10.7 | |
-| Windows | Tier 1 | >= Windows 8 | VS 2015 and later are supported |
->>>>>>> v1.42.0
+| Windows | Tier 1 | Windows >= 8 | MSVC 2015 and later are supported |
 | FreeBSD | Tier 1 | >= 10 | |
 | AIX | Tier 2 | >= 6 | Maintainers: @libuv/aix |
 | IBM i | Tier 2 | >= IBM i 7.2 | Maintainers: @libuv/ibmi |

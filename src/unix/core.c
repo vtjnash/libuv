@@ -40,12 +40,9 @@
 #include <sys/uio.h> /* writev */
 #include <sys/resource.h> /* getrusage */
 #include <pwd.h>
-<<<<<<< HEAD
 #include <sched.h>
-=======
 #include <sys/utsname.h>
 #include <sys/time.h>
->>>>>>> v1.42.0
 
 #ifdef __sun
 # include <sys/filio.h>
@@ -75,29 +72,14 @@ extern char** environ;
 # include <sys/sysctl.h>
 # include <sys/filio.h>
 # include <sys/wait.h>
-<<<<<<< HEAD
 # include <sys/param.h>
 # include <sys/cpuset.h>
-# define UV__O_CLOEXEC O_CLOEXEC
-=======
->>>>>>> v1.42.0
 # if defined(__FreeBSD__)
 #  define uv__accept4 accept4
 # endif
 # if defined(__NetBSD__)
 #  define uv__accept4(a, b, c, d) paccept((a), (b), (c), NULL, (d))
 # endif
-<<<<<<< HEAD
-# if (defined(__FreeBSD__) && __FreeBSD__ >= 10) || defined(__NetBSD__)
-#  define UV__SOCK_NONBLOCK SOCK_NONBLOCK
-#  define UV__SOCK_CLOEXEC  SOCK_CLOEXEC
-# endif
-#endif
-
-#if defined(__ANDROID_API__) && __ANDROID_API__ < 21
-# include <dlfcn.h>  /* for dlsym */
-=======
->>>>>>> v1.42.0
 #endif
 
 #if defined(__MVS__)
@@ -1480,8 +1462,6 @@ int uv_os_setpriority(uv_pid_t pid, int priority) {
 }
 
 
-<<<<<<< HEAD
-=======
 int uv_os_uname(uv_utsname_t* buffer) {
   struct utsname buf;
   int r;
@@ -1537,7 +1517,6 @@ error:
   return r;
 }
 
->>>>>>> v1.42.0
 int uv__getsockpeername(const uv_handle_t* handle,
                         uv__peersockfunc func,
                         struct sockaddr* name,
@@ -1559,8 +1538,6 @@ int uv__getsockpeername(const uv_handle_t* handle,
   *namelen = (int) socklen;
   return 0;
 }
-<<<<<<< HEAD
-=======
 
 int uv_gettimeofday(uv_timeval64_t* tv) {
   struct timeval time;
@@ -1664,4 +1641,3 @@ int uv__search_path(const char* prog, char* buf, size_t* buflen) {
   /* Out of tokens (path entries), and no match found */
   return UV_EINVAL;
 }
->>>>>>> v1.42.0

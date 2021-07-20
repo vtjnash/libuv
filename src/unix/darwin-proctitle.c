@@ -26,7 +26,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 #include <TargetConditionals.h>
 
@@ -39,42 +38,8 @@ static int uv__pthread_setname_np(const char* name) {
   char namebuf[64];  /* MAXTHREADNAMESIZE */
   int err;
 
-<<<<<<< HEAD
-#if !TARGET_OS_IPHONE
-static CFStringRef (*pCFStringCreateWithCString)(CFAllocatorRef,
-                                                 const char*,
-                                                 CFStringEncoding);
-static CFBundleRef (*pCFBundleGetBundleWithIdentifier)(CFStringRef);
-static void *(*pCFBundleGetDataPointerForName)(CFBundleRef, CFStringRef);
-static void *(*pCFBundleGetFunctionPointerForName)(CFBundleRef, CFStringRef);
-static CFTypeRef (*pLSGetCurrentApplicationASN)(void);
-static OSStatus (*pLSSetApplicationInformationItem)(int,
-                                                    CFTypeRef,
-                                                    CFStringRef,
-                                                    CFStringRef,
-                                                    CFDictionaryRef*);
-static void* application_services_handle;
-static void* core_foundation_handle;
-static CFBundleRef launch_services_bundle;
-static CFStringRef* display_name_key;
-static CFDictionaryRef (*pCFBundleGetInfoDictionary)(CFBundleRef);
-static CFBundleRef (*pCFBundleGetMainBundle)(void);
-static CFBundleRef hi_services_bundle;
-static OSStatus (*pSetApplicationIsDaemon)(int);
-static CFDictionaryRef (*pLSApplicationCheckIn)(int, CFDictionaryRef);
-static void (*pLSSetApplicationLaunchServicesServerConnectionStatus)(uint64_t,
-                                                                     void*);
-
-
-UV_DESTRUCTOR(static void uv__set_process_title_platform_fini(void)) {
-  if (core_foundation_handle != NULL) {
-    dlclose(core_foundation_handle);
-    core_foundation_handle = NULL;
-  }
-=======
   strncpy(namebuf, name, sizeof(namebuf) - 1);
   namebuf[sizeof(namebuf) - 1] = '\0';
->>>>>>> v1.42.0
 
   err = pthread_setname_np(namebuf);
   if (err)
@@ -83,10 +48,6 @@ UV_DESTRUCTOR(static void uv__set_process_title_platform_fini(void)) {
   return 0;
 }
 
-<<<<<<< HEAD
-void uv__set_process_title_platform_init(void) {
-#if !TARGET_OS_IPHONE
-=======
 
 int uv__set_process_title(const char* title) {
 #if TARGET_OS_IPHONE
@@ -117,7 +78,6 @@ int uv__set_process_title(const char* title) {
   int err;
 
   err = UV_ENOENT;
->>>>>>> v1.42.0
   application_services_handle = dlopen("/System/Library/Frameworks/"
                                        "ApplicationServices.framework/"
                                        "Versions/A/ApplicationServices",
@@ -227,26 +187,6 @@ out:
   if (application_services_handle != NULL)
     dlclose(application_services_handle);
 
-<<<<<<< HEAD
-void uv__set_process_title(const char* title) {
-  char namebuf[64];  /* MAXTHREADNAMESIZE */
-#if !TARGET_OS_IPHONE
-  if (core_foundation_handle != NULL && pSetApplicationIsDaemon(1) != noErr) {
-    CFTypeRef asn;
-    pLSSetApplicationLaunchServicesServerConnectionStatus(0, NULL);
-    pLSApplicationCheckIn(/* Magic value */ -2,
-                          pCFBundleGetInfoDictionary(pCFBundleGetMainBundle()));
-    asn = pLSGetCurrentApplicationASN();
-    pLSSetApplicationInformationItem(/* Magic value */ -2, asn,
-                                     *display_name_key, S(title), NULL);
-  }
-#endif  /* !TARGET_OS_IPHONE */
-
-  strncpy(namebuf, title, sizeof(namebuf) - 1);
-  namebuf[sizeof(namebuf) - 1] = '\0';
-  pthread_setname_np(namebuf);
-=======
   return err;
 #endif  /* !TARGET_OS_IPHONE */
->>>>>>> v1.42.0
 }

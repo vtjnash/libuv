@@ -735,7 +735,7 @@ int uv_pipe_bind(uv_pipe_t* handle, const char* name) {
 
   for (i = 0; i < handle->pipe.serv.pending_instances; i++) {
     req = &handle->pipe.serv.accept_reqs[i];
-    UV_REQ_INIT(req, UV_ACCEPT);
+    UV_REQ_INIT(loop, req, UV_ACCEPT);
     req->data = handle;
     req->pipeHandle = INVALID_HANDLE_VALUE;
     req->next_pending = NULL;
@@ -775,17 +775,6 @@ int uv_pipe_bind(uv_pipe_t* handle, const char* name) {
     goto error;
   }
 
-<<<<<<< HEAD
-  if (uv_set_pipe_handle(loop,
-                         handle,
-                         handle->pipe.serv.accept_reqs[0].pipeHandle,
-                         0)) {
-    err = GetLastError();
-    goto error;
-  }
-
-=======
->>>>>>> v1.42.0
   handle->pipe.serv.pending_accepts = NULL;
   handle->flags |= UV_HANDLE_PIPESERVER;
   handle->flags |= UV_HANDLE_BOUND;
@@ -848,7 +837,7 @@ void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,
   HANDLE pipeHandle = INVALID_HANDLE_VALUE;
   DWORD duplex_flags;
 
-  UV_REQ_INIT(req, UV_CONNECT);
+  UV_REQ_INIT(loop, req, UV_CONNECT);
   req->handle = (uv_stream_t*) handle;
   req->cb = cb;
 
@@ -1040,37 +1029,11 @@ static void uv_pipe_queue_accept(uv_loop_t* loop, uv_pipe_t* handle,
     uv_pipe_accept_t* req, BOOL firstInstance) {
   assert(handle->flags & UV_HANDLE_LISTENING);
 
-<<<<<<< HEAD
-  if (!firstInstance) {
-    assert(req->pipeHandle == INVALID_HANDLE_VALUE);
-
-    req->pipeHandle = CreateNamedPipeW(handle->name,
-        PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | WRITE_DAC,
-        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-        PIPE_UNLIMITED_INSTANCES, 65536, 65536, 0, NULL);
-
-    if (req->pipeHandle == INVALID_HANDLE_VALUE) {
-      SET_REQ_ERROR(req, GetLastError());
-      uv_insert_pending_req(loop, (uv_req_t*) req);
-      handle->reqs_pending++;
-      return;
-    }
-
-    if (uv_set_pipe_handle(loop, handle, req->pipeHandle, 0)) {
-      CloseHandle(req->pipeHandle);
-      req->pipeHandle = INVALID_HANDLE_VALUE;
-      SET_REQ_ERROR(req, GetLastError());
-      uv_insert_pending_req(loop, (uv_req_t*) req);
-      handle->reqs_pending++;
-      return;
-    }
-=======
   if (!firstInstance && !pipe_alloc_accept(loop, handle, req, FALSE)) {
     SET_REQ_ERROR(req, GetLastError());
     uv_insert_pending_req(loop, (uv_req_t*) req);
     handle->reqs_pending++;
     return;
->>>>>>> v1.42.0
   }
 
   assert(req->pipeHandle != INVALID_HANDLE_VALUE);
@@ -1547,7 +1510,7 @@ static int uv__pipe_write_data(uv_loop_t* loop,
 
   assert(handle->handle != INVALID_HANDLE_VALUE);
 
-  UV_REQ_INIT(req, UV_WRITE);
+  UV_REQ_INIT(loop, req, UV_WRITE);
   req->handle = (uv_stream_t*) handle;
   req->send_handle = NULL;
   req->cb = cb;

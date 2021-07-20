@@ -97,7 +97,6 @@ Data types
             UV_FS_LCHOWN,
             UV_FS_REALPATH,
             UV_FS_COPYFILE,
-            UV_FS_LCHOWN,
             UV_FS_OPENDIR,
             UV_FS_READDIR,
             UV_FS_CLOSEDIR,
@@ -165,11 +164,6 @@ Data types
 Public members
 ^^^^^^^^^^^^^^
 
-.. c:member:: uv_loop_t* uv_fs_t.loop
-
-    Loop that started this request and where completion will be reported.
-    Readonly.
-
 .. c:member:: uv_fs_type uv_fs_t.fs_type
 
     FS request type.
@@ -223,14 +217,12 @@ API
 
     Equivalent to :man:`preadv(2)`.
 
-<<<<<<< HEAD
-    .. versionchanged:: 2.0.0 replace uv_file with uv_os_fd_t
-=======
     .. warning::
         On Windows, under non-MSVC environments (e.g. when GCC or Clang is used
         to build libuv), files opened using ``UV_FS_O_FILEMAP`` may cause a fatal
         crash if the memory mapped read operation fails.
->>>>>>> v1.42.0
+
+    .. versionchanged:: 2.0.0 replace uv_file with uv_os_fd_t
 
 .. c:function:: int uv_fs_unlink(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb)
 
@@ -240,14 +232,12 @@ API
 
     Equivalent to :man:`pwritev(2)`.
 
-<<<<<<< HEAD
-    .. versionchanged:: 2.0.0 replace uv_file with uv_os_fd_t
-=======
     .. warning::
         On Windows, under non-MSVC environments (e.g. when GCC or Clang is used
         to build libuv), files opened using ``UV_FS_O_FILEMAP`` may cause a fatal
         crash if the memory mapped write operation fails.
->>>>>>> v1.42.0
+
+    .. versionchanged:: 2.0.0 replace uv_file with uv_os_fd_t
 
 .. c:function:: int uv_fs_mkdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int mode, uv_fs_cb cb)
 
@@ -336,13 +326,9 @@ API
 
     Equivalent to :man:`stat(2)`, :man:`fstat(2)` and :man:`lstat(2)` respectively.
 
-<<<<<<< HEAD
     .. versionchanged:: 2.0.0 replace uv_file with uv_os_fd_t
 
-.. c:function:: int uv_fs_rename(uv_loop_t* loop, uv_fs_t* req, const char* path, const char* new_path, uv_fs_cb cb)
-=======
 .. c:function:: int uv_fs_statfs(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb)
->>>>>>> v1.42.0
 
     Equivalent to :man:`statfs(2)`. On success, a `uv_statfs_t` is allocated
     and returned via `req->ptr`. This memory is freed by `uv_fs_req_cleanup()`.
@@ -407,15 +393,11 @@ API
     .. versionchanged:: 1.20.0 `UV_FS_COPYFILE_FICLONE` and
         `UV_FS_COPYFILE_FICLONE_FORCE` are supported.
 
-<<<<<<< HEAD
-.. c:function:: int uv_fs_sendfile(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t out_fd, uv_os_fd_t in_fd, int64_t in_offset, size_t length, uv_fs_cb cb)
-=======
     .. versionchanged:: 1.33.0 If an error occurs while using
         `UV_FS_COPYFILE_FICLONE_FORCE`, that error is returned. Previously,
         all errors were mapped to `UV_ENOTSUP`.
 
-.. c:function:: int uv_fs_sendfile(uv_loop_t* loop, uv_fs_t* req, uv_file out_fd, uv_file in_fd, int64_t in_offset, size_t length, uv_fs_cb cb)
->>>>>>> v1.42.0
+.. c:function:: int uv_fs_sendfile(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t out_fd, uv_os_fd_t in_fd, int64_t in_offset, size_t length, uv_fs_cb cb)
 
     Limited equivalent to :man:`sendfile(2)`.
 
@@ -433,12 +415,8 @@ API
     .. versionchanged:: 2.0.0 replace uv_file with uv_os_fd_t
 
 .. c:function:: int uv_fs_utime(uv_loop_t* loop, uv_fs_t* req, const char* path, double atime, double mtime, uv_fs_cb cb)
-<<<<<<< HEAD
 .. c:function:: int uv_fs_futime(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, double atime, double mtime, uv_fs_cb cb)
-=======
-.. c:function:: int uv_fs_futime(uv_loop_t* loop, uv_fs_t* req, uv_file file, double atime, double mtime, uv_fs_cb cb)
 .. c:function:: int uv_fs_lutime(uv_loop_t* loop, uv_fs_t* req, const char* path, double atime, double mtime, uv_fs_cb cb)
->>>>>>> v1.42.0
 
     Equivalent to :man:`utime(2)`, :man:`futimes(3)` and :man:`lutimes(3)` respectively.
 
@@ -587,18 +565,7 @@ Helper functions
 
     .. versionadded:: 1.12.0
 
-<<<<<<< HEAD
-    .. versionadded:: 2.0.0 replace uv_file with uv_os_fd_t
-=======
-.. c:function:: int uv_open_osfhandle(uv_os_fd_t os_fd)
-
-   For a OS-dependent handle, get the file descriptor in the C runtime.
-   On UNIX, returns the ``os_fd`` intact. On Windows, this calls `_open_osfhandle <https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/open-osfhandle?view=vs-2019>`_.
-   Note that this consumes the argument, any attempts to close it or to use it
-   after closing the return value may lead to malfunction.
-
-    .. versionadded:: 1.23.0
->>>>>>> v1.42.0
+    .. versionadded:: 2.0.0 replace uv_file with uv_os_fd_t and remove ``uv_open_osfhandle``
 
 File open constants
 -------------------
