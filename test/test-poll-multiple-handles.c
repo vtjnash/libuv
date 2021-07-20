@@ -61,8 +61,8 @@ TEST_IMPL(poll_multiple_handles) {
 #else
   ASSERT(sock != -1);
 #endif
-  ASSERT(0 == uv_poll_init_socket(uv_default_loop(), &first_poll_handle, sock));
-  ASSERT(0 == uv_poll_init_socket(uv_default_loop(), &second_poll_handle, sock));
+  ASSERT(0 == uv_poll_init(uv_default_loop(), &first_poll_handle, sock));
+  ASSERT(0 == uv_poll_init(uv_default_loop(), &second_poll_handle, sock));
 
   ASSERT(0 == uv_poll_start(&first_poll_handle, UV_READABLE, poll_cb));
 

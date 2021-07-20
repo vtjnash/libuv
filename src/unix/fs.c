@@ -66,6 +66,39 @@
 # include <sys/sysmacros.h>
 #endif
 
+
+UV_UNUSED(static struct timespec uv__fs_to_timespec(double time)) {
+  struct timespec ts;
+  ts.tv_sec  = time;
+  ts.tv_nsec = (time - ts.tv_sec) * 1e9;
+
+ /* TODO(bnoordhuis) Remove this. utimesat() has nanosecond resolution but we
+  * stick to microsecond resolution for the sake of consistency with other
+  * platforms. I'm the original author of this compatibility hack but I'm
+  * less convinced it's useful nowadays.
+  */
+  ts.tv_nsec -= ts.tv_nsec % 1000;
+
+  if (ts.tv_nsec < 0) {
+    ts.tv_nsec += 1e9;
+    ts.tv_sec -= 1;
+  }
+  return ts;
+}
+
+
+UV_UNUSED(static struct timeval uv__fs_to_timeval(double time)) {
+  struct timeval tv;
+  tv.tv_sec  = time;
+  tv.tv_usec = (time - tv.tv_sec) * 1e6;
+  if (tv.tv_usec < 0) {
+    tv.tv_usec += 1e6;
+    tv.tv_sec -= 1;
+  }
+  return tv;
+}
+
+
 #if defined(__APPLE__)
 # include <sys/attr.h>
 
@@ -82,31 +115,19 @@ static void uv__prepare_setattrlist_args(uv_fs_t* req,
 
   if (!isnan(req->btime)) {
     attr_list->commonattr |= ATTR_CMN_CRTIME;
-
-    (*times)[*size].tv_sec = req->btime;
-    (*times)[*size].tv_nsec =
-      (unsigned long)(req->btime * 1000000) % 1000000 * 1000;
-
+    (*times)[*size] = uv__fs_to_timespec(req->btime);
     ++*size;
   }
 
   if (!isnan(req->mtime)) {
     attr_list->commonattr |= ATTR_CMN_MODTIME;
-
-    (*times)[*size].tv_sec = req->mtime;
-    (*times)[*size].tv_nsec =
-      (unsigned long)(req->mtime * 1000000) % 1000000 * 1000;
-
+    (*times)[*size] = uv__fs_to_timespec(req->mtime);
     ++*size;
   }
 
   if (!isnan(req->atime)) {
     attr_list->commonattr |= ATTR_CMN_ACCTIME;
-
-    (*times)[*size].tv_sec = req->atime;
-    (*times)[*size].tv_nsec =
-      (unsigned long)(req->atime * 1000000) % 1000000 * 1000;
-
+    (*times)[*size] = uv__fs_to_timespec(req->atime);
     ++*size;
   }
 }
@@ -275,36 +296,6 @@ static ssize_t uv__fs_fdatasync(uv_fs_t* req) {
 #endif
 }
 
-
-UV_UNUSED(static struct timespec uv__fs_to_timespec(double time)) {
-  struct timespec ts;
-  ts.tv_sec  = time;
-  ts.tv_nsec = (time - ts.tv_sec) * 1e9;
-
- /* TODO(bnoordhuis) Remove this. utimesat() has nanosecond resolution but we
-  * stick to microsecond resolution for the sake of consistency with other
-  * platforms. I'm the original author of this compatibility hack but I'm
-  * less convinced it's useful nowadays.
-  */
-  ts.tv_nsec -= ts.tv_nsec % 1000;
-
-  if (ts.tv_nsec < 0) {
-    ts.tv_nsec += 1e9;
-    ts.tv_sec -= 1;
-  }
-  return ts;
-}
-
-UV_UNUSED(static struct timeval uv__fs_to_timeval(double time)) {
-  struct timeval tv;
-  tv.tv_sec  = time;
-  tv.tv_usec = (time - tv.tv_sec) * 1e6;
-  if (tv.tv_usec < 0) {
-    tv.tv_usec += 1e6;
-    tv.tv_sec -= 1;
-  }
-  return tv;
-}
 
 static ssize_t uv__fs_futime(uv_fs_t* req) {
 #if defined(__linux__)                                                        \

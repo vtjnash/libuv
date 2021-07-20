@@ -1725,7 +1725,7 @@ TEST_IMPL(spawn_fs_open) {
   ASSERT(0 == uv_write(&write_req2, (uv_stream_t*) &in, &buf, 1, write_cb));
 
   ASSERT(0 == uv_run(uv_default_loop(), UV_RUN_DEFAULT));
-  ASSERT(0 == uv_fs_close(NULL, &fs_req, r, NULL));
+  ASSERT(0 == uv_fs_close(NULL, &fs_req, fd, NULL));
 
   ASSERT(exit_cb_called == 1);
   ASSERT(close_cb_called == 2);  /* One for `in`, one for process */
