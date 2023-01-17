@@ -177,25 +177,6 @@ void uv__wake_all_loops(void) {
 }
 
 static void uv__init(void) {
-  /* Tell Windows that we will handle critical errors. */
-  SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX |
-               SEM_NOOPENFILEERRORBOX);
-
-  /* Tell the CRT to not exit the application when an invalid parameter is
-   * passed. The main issue is that invalid FDs will trigger this behavior.
-   */
-#if !defined(__MINGW32__) || __MSVCRT_VERSION__ >= 0x800
-  _set_invalid_parameter_handler(uv__crt_invalid_parameter_handler);
-#endif
-
-  /* We also need to setup our debug report handler because some CRT
-   * functions (eg _get_osfhandle) raise an assert when called with invalid
-   * FDs even though they return the proper error code in the release build.
-   */
-#if defined(_DEBUG) && (defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR))
-  _CrtSetReportHook(uv__crt_dbg_report_handler);
-#endif
-
   /* Initialize tracking of all uv loops */
   uv__loops_init();
 
