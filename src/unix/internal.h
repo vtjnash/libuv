@@ -75,6 +75,10 @@
 # include <AvailabilityMacros.h>
 #endif
 
+#if __GNUC__ >= 4
+# pragma GCC visibility push(hidden)
+#endif
+
 /*
  * Define common detection for active Thread Sanitizer
  * - clang uses __has_feature(thread_sanitizer)
@@ -458,6 +462,10 @@ uv__fs_copy_file_range(int fd_in,
 #define UV__CPU_AFFINITY_SUPPORTED 1
 #else
 #define UV__CPU_AFFINITY_SUPPORTED 0
+#endif
+
+#if __GNUC__ >= 4
+# pragma GCC visibility pop
 #endif
 
 #endif /* UV_UNIX_INTERNAL_H_ */

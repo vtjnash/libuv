@@ -51,6 +51,10 @@
 extern int snprintf(char*, size_t, const char*, ...);
 #endif
 
+#if __GNUC__ >= 4
+# pragma GCC visibility push(hidden)
+#endif
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define ARRAY_END(a)  ((a) + ARRAY_SIZE(a))
 
@@ -428,5 +432,9 @@ struct uv__loop_internal_fields_s {
   void* inv;  /* used by uv__platform_invalidate_fd() */
 #endif  /* __linux__ */
 };
+
+#if __GNUC__ >= 4
+# pragma GCC visibility pop
+#endif
 
 #endif /* UV_COMMON_H_ */
