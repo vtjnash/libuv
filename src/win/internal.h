@@ -38,6 +38,7 @@
 # define UV_THREAD_LOCAL __thread
 #endif
 
+extern uv_once_t uv_init_guard_;
 
 int uv__dup(uv_os_fd_t fd, uv_os_fd_t* dupfd);
 
@@ -138,7 +139,7 @@ void uv__pipe_endgame(uv_loop_t* loop, uv_pipe_t* handle);
 /*
  * TTY
  */
-void uv__console_init(void);
+void uv__console_init(void) UV_REQUIRES(&uv_init_guard_);
 
 int uv__tty_read_start(uv_tty_t* handle, uv_alloc_cb alloc_cb,
     uv_read_cb read_cb);
@@ -178,7 +179,7 @@ void uv__run_prepare(uv_loop_t* loop);
 void uv__run_check(uv_loop_t* loop);
 void uv__run_idle(uv_loop_t* loop);
 
-void uv__once_init(void);
+void uv__once_init(void) UV_ACQUIRE_SHARED(&uv_init_guard_);
 
 
 /*
@@ -192,14 +193,18 @@ void uv__process_async_wakeup_req(uv_loop_t* loop, uv_req_t* req);
 /*
  * Signal watcher
  */
-void uv__signals_init(void);
-int uv__signal_dispatch(int signum);
+extern uv_mutex_t uv__signal_lock;
+void uv__signals_init(void) UV_REQUIRES(&uv_init_guard_);
+int uv__signal_dispatch(int signum)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock);
 
-void uv__signal_close(uv_loop_t* loop, uv_signal_t* handle);
+void uv__signal_close(uv_loop_t* loop, uv_signal_t* handle)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock);
 void uv__signal_endgame(uv_loop_t* loop, uv_signal_t* handle);
 
 void uv__process_signal_req(uv_loop_t* loop, uv_signal_t* handle,
-    uv_req_t* req);
+    uv_req_t* req)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock);
 
 
 /*
@@ -213,7 +218,7 @@ void uv__process_endgame(uv_loop_t* loop, uv_process_t* handle);
 /*
  * FS
  */
-void uv__fs_init(void);
+void uv__fs_init(void) UV_REQUIRES(&uv_init_guard_);
 
 
 /*
@@ -234,9 +239,9 @@ void uv__fs_poll_endgame(uv_loop_t* loop, uv_fs_poll_t* handle);
 /*
  * Utilities.
  */
-void uv__util_init(void);
+void uv__util_init(void) UV_REQUIRES(&uv_init_guard_);
 
-uint64_t uv__hrtime(unsigned int scale);
+uint64_t uv__hrtime(unsigned int scale) UV_REQUIRES_SHARED(&uv_init_guard_);
 __declspec(noreturn) void uv_fatal_error(const int errorno, const char* syscall);
 int uv__convert_utf16_to_utf8(const WCHAR* utf16, size_t utf16len, char** utf8);
 int uv__copy_utf16_to_utf8(const WCHAR* utf16, size_t utf16len, char* utf8, size_t *size);
@@ -269,13 +274,13 @@ HANDLE uv__stdio_handle(BYTE* buffer, int fd);
 /*
  * Winapi and ntapi utility functions
  */
-void uv__winapi_init(void);
+void uv__winapi_init(void) UV_REQUIRES(&uv_init_guard_);
 
 
 /*
  * Winsock utility functions
  */
-void uv__winsock_init(void);
+void uv__winsock_init(void) UV_REQUIRES(&uv_init_guard_);
 
 int uv__ntstatus_to_winsock_error(NTSTATUS status);
 
@@ -294,22 +299,22 @@ int WSAAPI uv__msafd_poll(SOCKET socket, AFD_POLL_INFO* info_in,
     AFD_POLL_INFO* info_out, OVERLAPPED* overlapped);
 
 /* Whether there are any non-IFS LSPs stacked on TCP */
-extern int uv_tcp_non_ifs_lsp_ipv4;
-extern int uv_tcp_non_ifs_lsp_ipv6;
+extern int uv_tcp_non_ifs_lsp_ipv4 UV_GUARDED_BY(uv_init_guard_);
+extern int uv_tcp_non_ifs_lsp_ipv6 UV_GUARDED_BY(uv_init_guard_);
 
 /* Ip address used to bind to any port at any interface */
-extern struct sockaddr_in uv_addr_ip4_any_;
-extern struct sockaddr_in6 uv_addr_ip6_any_;
+extern struct sockaddr_in uv_addr_ip4_any_ UV_GUARDED_BY(uv_init_guard_);
+extern struct sockaddr_in6 uv_addr_ip6_any_ UV_GUARDED_BY(uv_init_guard_);
 
 /*
  * Wake all loops with fake message
  */
-void uv__wake_all_loops(void);
+void uv__wake_all_loops(void) UV_REQUIRES_SHARED(&uv_init_guard_);
 
 /*
  * Init system wake-up detection
  */
-void uv__init_detect_system_wakeup(void);
+void uv__init_detect_system_wakeup(void) UV_REQUIRES(&uv_init_guard_);
 
 int uv_translate_write_sys_error(int sys_errno);
 

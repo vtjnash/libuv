@@ -147,7 +147,7 @@ uint64_t uv_hrtime(void) {
 }
 
 
-void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
+void uv_close(uv_handle_t* handle, uv_close_cb close_cb) UV_EXCLUDES(&uv__signal_global_init_guard) {
   assert(!uv__is_closing(handle));
 
   handle->flags |= UV_HANDLE_CLOSING;
@@ -218,7 +218,9 @@ void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
     return;
 
   case UV_SIGNAL:
+    uv_once_assume_ran(&uv__signal_global_init_guard);
     uv__signal_close((uv_signal_t*) handle);
+
     break;
 
   default:

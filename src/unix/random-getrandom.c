@@ -33,8 +33,8 @@
 
 typedef ssize_t (*uv__getrandom_cb)(void *, size_t, unsigned);
 
-static uv__getrandom_cb uv__getrandom;
 static uv_once_t once = UV_ONCE_INIT;
+static uv__getrandom_cb uv__getrandom UV_GUARDED_BY(&once);
 
 static void uv__random_getrandom_init_once(void) {
   uv__getrandom = (uv__getrandom_cb) dlsym(RTLD_DEFAULT, "getrandom");

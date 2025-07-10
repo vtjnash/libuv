@@ -26,7 +26,7 @@
 #include <unistd.h>
 
 static uv_once_t once = UV_ONCE_INIT;
-static int status;
+static int status UV_GUARDED_BY(&once);
 
 
 int uv__random_readpath(const char* path, void* buf, size_t buflen) {
@@ -71,7 +71,7 @@ int uv__random_readpath(const char* path, void* buf, size_t buflen) {
 }
 
 
-static void uv__random_devurandom_init(void) {
+static void uv__random_devurandom_init(void) UV_REQUIRES(&once) {
   char c;
 
   /* Linux's random(4) man page suggests applications should read at least
@@ -84,10 +84,12 @@ static void uv__random_devurandom_init(void) {
 
 
 int uv__random_devurandom(void* buf, size_t buflen) UV_EXCLUDES(&once) {
+  int status_;
   uv_once(&once, uv__random_devurandom_init);
+  status_ = status;
 
-  if (status != 0)
-    return status;
+  if (status_ != 0)
+    return status_;
 
   return uv__random_readpath("/dev/urandom", buf, buflen);
 }

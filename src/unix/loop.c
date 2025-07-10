@@ -27,7 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 
-int uv_loop_init(uv_loop_t* loop) {
+int uv_loop_init(uv_loop_t* loop) UV_EXCLUDES(&uv__signal_global_init_guard) {
   uv__loop_internal_fields_t* lfields;
   void* saved_data;
   int err;
@@ -102,6 +102,8 @@ int uv_loop_init(uv_loop_t* loop) {
   uv__handle_unref(&loop->wq_async);
   loop->wq_async.flags |= UV_HANDLE_INTERNAL;
 
+
+
   return 0;
 
 fail_async_init:
@@ -111,9 +113,8 @@ fail_mutex_init:
   uv_rwlock_destroy(&loop->cloexec_lock);
 
 fail_rwlock_init:
-  uv__signal_loop_cleanup(loop);
-
 fail_signal_init:
+  uv__signal_loop_cleanup(loop);
   uv__platform_loop_delete(loop);
 
 fail_platform_init:
@@ -129,7 +130,7 @@ fail_metrics_mutex_init:
 }
 
 
-int uv_loop_fork(uv_loop_t* loop) {
+int uv_loop_fork(uv_loop_t* loop) UV_NO_THREAD_SAFETY_ANALYSIS {
   int err;
   unsigned int i;
   uv__io_t* w;
@@ -162,7 +163,7 @@ int uv_loop_fork(uv_loop_t* loop) {
 }
 
 
-void uv__loop_close(uv_loop_t* loop) {
+void uv__loop_close(uv_loop_t* loop) UV_RELEASE_SHARED(&uv__signal_global_init_guard) {
   uv__loop_internal_fields_t* lfields;
 
   uv__signal_loop_cleanup(loop);

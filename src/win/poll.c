@@ -44,13 +44,13 @@ typedef struct uv_single_fd_set_s {
 } uv_single_fd_set_t;
 
 
-static OVERLAPPED overlapped_dummy_;
 static uv_once_t overlapped_dummy_init_guard_ = UV_ONCE_INIT;
+static OVERLAPPED overlapped_dummy_ UV_GUARDED_BY(&overlapped_dummy_init_guard_);
 
 static AFD_POLL_INFO afd_poll_info_dummy_;
 
 
-static void uv__init_overlapped_dummy(void) {
+static void uv__init_overlapped_dummy(void) UV_REQUIRES(&overlapped_dummy_init_guard_) {
   HANDLE event;
 
   event = CreateEvent(NULL, TRUE, TRUE, NULL);
@@ -62,8 +62,13 @@ static void uv__init_overlapped_dummy(void) {
 }
 
 
-static OVERLAPPED* uv__get_overlapped_dummy(void) UV_EXCLUDES(&overlapped_dummy_init_guard_) {
+static OVERLAPPED* uv__get_overlapped_dummy(void)
+UV_EXCLUDES(&overlapped_dummy_init_guard_) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_once(&overlapped_dummy_init_guard_, uv__init_overlapped_dummy);
+  /* TODO: this would likely get reported as a data race in the kernel, but we
+   * assume it is benign. Perhaps we could revert
+   * 07f01752393f9b40a739f9bdcc5327699f9398ed now that Windows XP support has
+   * been dropped, but there were no tests added to show if it is still a bug. */
   return &overlapped_dummy_;
 }
 

@@ -31,26 +31,29 @@
 #include "req-inl.h"
 #include "heap-inl.h"
 
-/* uv_once initialization guards */
-static uv_once_t uv_init_guard_ = UV_ONCE_INIT;
-
-static struct uv__queue uv__loops;
-static uv_mutex_t uv__loops_lock;
+uv_once_t uv_init_guard_ = UV_ONCE_INIT;
+static uv_mutex_t uv__loops_lock UV_GUARDED_BY(uv_init_guard_);
+static struct uv__queue uv__loops UV_GUARDED_BY(&uv__loops_lock);
 
 
-static void uv__loops_init(void) {
+static void uv__loops_init(void)
+UV_REQUIRES(&uv_init_guard_) UV_EXCLUDES(&uv__loops_lock) {
   uv_mutex_init(&uv__loops_lock);
+  uv_mutex_assume_locked(&uv__loops_lock);
   uv__queue_init(&uv__loops);
+  uv_mutex_assume_unlocked(&uv__loops_lock);
 }
 
-static void uv__loops_add(uv_loop_t* loop) UV_EXCLUDES(&uv__loops_lock) {
+static void uv__loops_add(uv_loop_t* loop)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__loops_lock) {
   uv_mutex_lock(&uv__loops_lock);
   uv__queue_insert_tail(&uv__loops, &loop->loops_queue);
   uv_mutex_unlock(&uv__loops_lock);
 }
 
 
-static void uv__loops_remove(uv_loop_t* loop) UV_EXCLUDES(&uv__loops_lock) {
+static void uv__loops_remove(uv_loop_t* loop)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__loops_lock) {
   uv_mutex_lock(&uv__loops_lock);
   uv__queue_remove(&loop->loops_queue);
   uv_mutex_unlock(&uv__loops_lock);
@@ -68,7 +71,8 @@ void uv__wake_all_loops(void) UV_EXCLUDES(&uv__loops_lock) {
   uv_mutex_unlock(&uv__loops_lock);
 }
 
-static void uv__init(void) {
+static void uv__init(void)
+UV_REQUIRES(&uv_init_guard_) UV_EXCLUDES(&uv__loops_lock) {
   /* Initialize tracking of all uv loops */
   uv__loops_init();
 
@@ -101,14 +105,15 @@ static void uv__init(void) {
 #define UV__MILLISEC 1000
 
 
-void uv_update_time(uv_loop_t* loop) {
+void uv_update_time(uv_loop_t* loop) UV_REQUIRES_SHARED(&uv_init_guard_) {
   uint64_t new_time = uv__hrtime(UV__MILLISEC);
   assert(new_time >= loop->time);
   loop->time = new_time;
 }
 
 
-int uv_loop_init(uv_loop_t* loop) UV_EXCLUDES(&uv__loops_lock) {
+int uv_loop_init(uv_loop_t* loop)
+UV_EXCLUDES(&uv_init_guard_, &uv__loops_lock) {
   uv__loop_internal_fields_t* lfields;
   int err;
 
@@ -117,12 +122,16 @@ int uv_loop_init(uv_loop_t* loop) UV_EXCLUDES(&uv__loops_lock) {
 
   /* Create an I/O completion port */
   loop->iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
-  if (loop->iocp == NULL)
+  if (loop->iocp == NULL) {
+
     return uv_translate_sys_error(GetLastError());
+  }
 
   lfields = (uv__loop_internal_fields_t*) uv__calloc(1, sizeof(*lfields));
-  if (lfields == NULL)
+  if (lfields == NULL) {
+
     return UV_ENOMEM;
+  }
   loop->internal_fields = lfields;
 
   err = uv_mutex_init(&lfields->loop_metrics.lock);
@@ -175,6 +184,7 @@ int uv_loop_init(uv_loop_t* loop) UV_EXCLUDES(&uv__loops_lock) {
   uv__queue_init(&loop->loops_queue);
   uv__loops_add(loop);
 
+
   return 0;
 
 fail_async_init:
@@ -189,16 +199,19 @@ fail_metrics_mutex_init:
   CloseHandle(loop->iocp);
   loop->iocp = INVALID_HANDLE_VALUE;
 
+
   return err;
 }
 
 
-void uv__once_init(void) UV_EXCLUDES(&uv_init_guard_) {
+void uv__once_init(void)
+UV_EXCLUDES(&uv_init_guard_) UV_ACQUIRE_SHARED(&uv_init_guard_) {
   uv_once(&uv_init_guard_, uv__init);
 }
 
 
-void uv__loop_close(uv_loop_t* loop) UV_EXCLUDES(&uv__loops_lock) {
+void uv__loop_close(uv_loop_t* loop)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__loops_lock) {
   uv__loop_internal_fields_t* lfields;
   size_t i;
 
@@ -284,7 +297,8 @@ int uv_backend_timeout(const uv_loop_t* loop) {
 }
 
 
-static void uv__poll(uv_loop_t* loop, DWORD timeout) {
+static void uv__poll(uv_loop_t* loop, DWORD timeout)
+UV_REQUIRES_SHARED(&uv_init_guard_) {
   uv__loop_internal_fields_t* lfields;
   BOOL success;
   uv_req_t* req;
@@ -397,7 +411,8 @@ static void uv__poll(uv_loop_t* loop, DWORD timeout) {
 }
 
 
-int uv_run(uv_loop_t *loop, uv_run_mode mode) {
+int uv_run(uv_loop_t *loop, uv_run_mode mode)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   int timeout;
   int r;
   int can_sleep;

@@ -27,12 +27,12 @@
 
 
 /* Whether there are any non-IFS LSPs stacked on TCP */
-int uv_tcp_non_ifs_lsp_ipv4;
-int uv_tcp_non_ifs_lsp_ipv6;
+int uv_tcp_non_ifs_lsp_ipv4 UV_GUARDED_BY(&uv_init_guard_);
+int uv_tcp_non_ifs_lsp_ipv6 UV_GUARDED_BY(&uv_init_guard_);
 
 /* Ip address used to bind to any port at any interface */
-struct sockaddr_in uv_addr_ip4_any_;
-struct sockaddr_in6 uv_addr_ip6_any_;
+struct sockaddr_in uv_addr_ip4_any_ UV_GUARDED_BY(&uv_init_guard_);
+struct sockaddr_in6 uv_addr_ip6_any_ UV_GUARDED_BY(&uv_init_guard_);
 
 
 /*

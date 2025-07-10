@@ -40,10 +40,10 @@
 
 #if UV__KQUEUE_EVFILT_USER
 static uv_once_t kqueue_runtime_detection_guard = UV_ONCE_INIT;
-static int kqueue_evfilt_user_support = 1;
+static int kqueue_evfilt_user_support UV_GUARDED_BY(&kqueue_runtime_detection_guard) = 1;
 
 
-static void uv__kqueue_runtime_detection(void) {
+static void uv__kqueue_runtime_detection(void) UV_REQUIRES(&kqueue_runtime_detection_guard) {
   int kq;
   struct kevent ev[2];
   struct timespec timeout = {0, 0};
@@ -157,7 +157,11 @@ void uv__async_close(uv_async_t* handle) {
 }
 
 
-static void uv__async_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+static void uv__async_io(uv_loop_t* loop, uv__io_t* w, unsigned int events)
+#if UV__KQUEUE_EVFILT_USER
+UV_REQUIRES_SHARED(&kqueue_runtime_detection_guard)
+#endif
+{
   char buf[1024];
   ssize_t r;
   struct uv__queue queue;
@@ -210,7 +214,11 @@ static void uv__async_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 }
 
 
-static void uv__async_send(uv_loop_t* loop) {
+static void uv__async_send(uv_loop_t* loop)
+#if UV__KQUEUE_EVFILT_USER
+UV_REQUIRES_SHARED(&kqueue_runtime_detection_guard)
+#endif
+{
   const void* buf;
   ssize_t len;
   int fd;
@@ -255,7 +263,11 @@ static void uv__async_send(uv_loop_t* loop) {
 }
 
 
-static int uv__async_start(uv_loop_t* loop) UV_EXCLUDES(&kqueue_runtime_detection_guard) {
+static int uv__async_start(uv_loop_t* loop)
+#if UV__KQUEUE_EVFILT_USER
+UV_EXCLUDES(&kqueue_runtime_detection_guard)
+#endif
+{
   int pipefd[2];
   int err;
 #if UV__KQUEUE_EVFILT_USER
@@ -281,8 +293,10 @@ static int uv__async_start(uv_loop_t* loop) UV_EXCLUDES(&kqueue_runtime_detectio
      * it's just a placeholder and magic number which is going to be closed
      * during the cleanup, as other FDs. */
     err = uv__open_cloexec("/dev/null", O_RDONLY);
-    if (err < 0)
+    if (err < 0) {
+
       return err;
+    }
 
     pipefd[0] = err;
     pipefd[1] = -1;
@@ -295,12 +309,16 @@ static int uv__async_start(uv_loop_t* loop) UV_EXCLUDES(&kqueue_runtime_detectio
      * events, but must perform it right away. */
     EV_SET(&ev, err, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, 0);
     err = kevent(loop->backend_fd, &ev, 1, NULL, 0, NULL);
-    if (err < 0)
+    if (err < 0) {
+
       return UV__ERR(errno);
+    }
   } else {
     err = uv__make_pipe(pipefd, UV_NONBLOCK_PIPE);
-    if (err < 0)
+    if (err < 0) {
+
       return err;
+    }
   }
 #else
   err = uv__make_pipe(pipefd, UV_NONBLOCK_PIPE);
@@ -317,6 +335,7 @@ static int uv__async_start(uv_loop_t* loop) UV_EXCLUDES(&kqueue_runtime_detectio
    * and mistakenly later in uv__io_poll(). */
   if (kqueue_evfilt_user_support)
     loop->async_io_watcher.events = loop->async_io_watcher.pevents;
+
 #endif
 
   return 0;

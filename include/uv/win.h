@@ -157,8 +157,7 @@ typedef struct {
   unsigned threshold;
   unsigned in;
   uv_mutex_t mutex;
-  /* TODO: in v2 make this a uv_cond_t, without unused_ */
-  CONDITION_VARIABLE cond;
+  uv_cond_t cond;
   unsigned out;
 } uv_barrier_t;
 
@@ -361,7 +360,7 @@ typedef struct {
   struct uv__queue ipc_xfer_queue;                                            \
   int ipc_xfer_queue_length;                                                  \
   uv_write_t* non_overlapped_writes_tail;                                     \
-  CRITICAL_SECTION readfile_thread_lock;                                      \
+  uv_mutex_t readfile_thread_lock;                                            \
   volatile HANDLE readfile_thread_handle;
 
 #define UV_PIPE_PRIVATE_FIELDS                                                \

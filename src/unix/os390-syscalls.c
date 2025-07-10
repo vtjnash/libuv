@@ -27,9 +27,9 @@
 #include <termios.h>
 #include <sys/msg.h>
 
-static struct uv__queue global_epoll_queue;
-static uv_mutex_t global_epoll_lock;
 static uv_once_t once = UV_ONCE_INIT;
+static uv_mutex_t global_epoll_lock UV_GUARDED_BY(&once);
+static struct uv__queue global_epoll_queue UV_GUARDED_BY(&global_epoll_lock);
 
 int scandir(const char* maindir, struct dirent*** namelist,
             int (*filter)(const struct dirent*),
@@ -365,6 +365,7 @@ int epoll_file_close(int fd) {
   }
 
   uv_mutex_unlock(&global_epoll_lock);
+
   return 0;
 }
 
@@ -373,6 +374,7 @@ void epoll_queue_close(uv__os390_epoll* lst) {
   uv_mutex_lock(&global_epoll_lock);
   uv__queue_remove(&lst->member);
   uv_mutex_unlock(&global_epoll_lock);
+
 
   /* Free resources */
   msgctl(lst->msg_queue, IPC_RMID, NULL);

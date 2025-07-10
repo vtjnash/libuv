@@ -530,7 +530,7 @@ int uv_sem_trywait(uv_sem_t* sem) {
  * a pointer to the actual struct we're using underneath. */
 
 static uv_once_t glibc_version_check_once = UV_ONCE_INIT;
-static int platform_needs_custom_semaphore = 0;
+static int platform_needs_custom_semaphore UV_GUARDED_BY(&glibc_version_check_once) = 0;
 
 static void glibc_version_check(void) {
   const char* version = gnu_get_libc_version();

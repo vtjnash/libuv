@@ -65,15 +65,15 @@
 #define RDWR_BUF_SIZE   4096
 #define EQ(a,b)         (strcmp(a,b) == 0)
 
-char* original_exepath = NULL;
-uv_mutex_t process_title_mutex;
 uv_once_t process_title_mutex_once = UV_ONCE_INIT;
-static void* args_mem = NULL;
-static char** process_argv = NULL;
-static int process_argc = 0;
-static char* process_title_ptr = NULL;
+uv_mutex_t process_title_mutex UV_GUARDED_BY(&process_title_mutex_once);
+char* original_exepath UV_GUARDED_BY(&process_title_mutex) = NULL;
+static void* args_mem UV_GUARDED_BY(&process_title_mutex) = NULL;
+static char** process_argv UV_GUARDED_BY(&process_title_mutex) = NULL;
+static int process_argc UV_GUARDED_BY(&process_title_mutex) = 0;
+static char* process_title_ptr UV_GUARDED_BY(&process_title_mutex) = NULL;
 
-void init_process_title_mutex_once(void) {
+void init_process_title_mutex_once(void) UV_REQUIRES(&process_title_mutex_once) {
   uv_mutex_init(&process_title_mutex);
 }
 
@@ -995,6 +995,7 @@ int uv_get_process_title(char* buffer, size_t size) {
   buffer[len] = '\0';
 
   uv_mutex_unlock(&process_title_mutex);
+
 
   return 0;
 }

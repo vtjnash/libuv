@@ -79,7 +79,7 @@ enum uv__read_console_status_e {
 
 static volatile LONG uv__read_console_status = NOT_STARTED;
 static volatile LONG uv__restore_screen_state;
-static CONSOLE_SCREEN_BUFFER_INFO uv__saved_screen_state;
+static CONSOLE_SCREEN_BUFFER_INFO uv__saved_screen_state /* guarded by uv__restore_screen_state */;
 
 
 /*
@@ -108,20 +108,20 @@ static CONSOLE_SCREEN_BUFFER_INFO uv__saved_screen_state;
  * between all stdout/stderr handles.
  */
 
-static int uv_tty_virtual_offset = -1;
-static int uv_tty_virtual_height = -1;
-static int uv_tty_virtual_width = -1;
+static int uv_tty_virtual_offset /* guarded by uv_tty_output_lock */ = -1;
+static int uv_tty_virtual_height /* guarded by uv_tty_output_lock */ = -1;
+static int uv_tty_virtual_width /* guarded by uv_tty_output_lock */ = -1;
 
 /* The console window size
  * We keep this separate from uv_tty_virtual_*. We use those values to only
  * handle signalling SIGWINCH
  */
 
-static HANDLE uv__tty_console_handle = INVALID_HANDLE_VALUE;
-static int uv__tty_console_height = -1;
-static int uv__tty_console_width = -1;
-static HANDLE uv__tty_console_resized = INVALID_HANDLE_VALUE;
 static uv_mutex_t uv__tty_console_resize_mutex;
+static HANDLE uv__tty_console_handle /* guarded by uv_tty_output_lock */ = INVALID_HANDLE_VALUE;
+static int uv__tty_console_height UV_GUARDED_BY(&uv__tty_console_resize_mutex) = -1;
+static int uv__tty_console_width UV_GUARDED_BY(&uv__tty_console_resize_mutex) = -1;
+static HANDLE uv__tty_console_resized /* guarded by uv_tty_output_lock */ = INVALID_HANDLE_VALUE;
 
 static DWORD WINAPI uv__tty_console_resize_message_loop_thread(void* param);
 static void CALLBACK uv__tty_console_resize_event(HWINEVENTHOOK hWinEventHook,
@@ -140,23 +140,23 @@ static void uv__tty_console_signal_resize(void);
    scenario the main thread will still block when trying to acquire the lock. */
 static uv_sem_t uv_tty_output_lock;
 
-static WORD uv_tty_default_text_attributes =
+static WORD uv_tty_default_text_attributes /* guarded by uv_tty_output_lock */ =
     FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
 
-static char uv_tty_default_fg_color = 7;
-static char uv_tty_default_bg_color = 0;
-static char uv_tty_default_fg_bright = 0;
-static char uv_tty_default_bg_bright = 0;
-static char uv_tty_default_inverse = 0;
+static char uv_tty_default_fg_color /* guarded by uv_tty_output_lock */ = 7;
+static char uv_tty_default_bg_color /* guarded by uv_tty_output_lock */ = 0;
+static char uv_tty_default_fg_bright /* guarded by uv_tty_output_lock */ = 0;
+static char uv_tty_default_bg_bright /* guarded by uv_tty_output_lock */ = 0;
+static char uv_tty_default_inverse /* guarded by uv_tty_output_lock */ = 0;
 
-static CONSOLE_CURSOR_INFO uv_tty_default_cursor_info;
+static CONSOLE_CURSOR_INFO uv_tty_default_cursor_info /* guarded by uv_tty_output_lock */;
 
 /* Determine whether or not ANSI support is enabled. */
-static BOOL uv__need_check_vterm_state = TRUE;
-static uv_tty_vtermstate_t uv__vterm_state = UV_TTY_UNSUPPORTED;
+static BOOL uv__need_check_vterm_state /* guarded by uv_tty_output_lock */ = TRUE;
+static uv_tty_vtermstate_t uv__vterm_state /* guarded by uv_tty_output_lock */ = UV_TTY_UNSUPPORTED;
 static void uv__determine_vterm_state(HANDLE handle);
 
-void uv__console_init(void) {
+void uv__console_init(void) UV_NO_THREAD_SAFETY_ANALYSIS {
   if (uv_sem_init(&uv_tty_output_lock, 1))
     abort();
   uv__tty_console_handle = CreateFileW(L"CONOUT$",
@@ -2364,7 +2364,7 @@ static DWORD WINAPI uv__tty_console_resize_watcher_thread(void* param) {
   return 0;
 }
 
-static void uv__tty_console_signal_resize(void) UV_EXCLUDES(&uv__tty_console_resize_mutex) {
+static void uv__tty_console_signal_resize(void) UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__tty_console_resize_mutex, &uv__signal_lock) {
   CONSOLE_SCREEN_BUFFER_INFO sb_info;
   int width, height;
 

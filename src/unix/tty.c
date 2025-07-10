@@ -62,9 +62,9 @@ static int isreallyatty(int file) {
 #define isatty(fd) isreallyatty(fd)
 #endif
 
-static int orig_termios_fd = -1;
-static struct termios orig_termios;
 static _Atomic int termios_spinlock;
+static int orig_termios_fd /* guarded by termios_spinlock */ = -1;
+static struct termios orig_termios /* guarded by termios_spinlock */;
 
 int uv__tcsetattr(int fd, int how, const struct termios *term) {
   int rc;

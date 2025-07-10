@@ -133,7 +133,7 @@ INLINE static void uv__insert_pending_req(uv_loop_t* loop, uv_req_t* req) {
   } while (0)
 
 
-INLINE static void uv__process_reqs(uv_loop_t* loop) {
+INLINE static void uv__process_reqs(uv_loop_t* loop) UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   uv_req_t* req;
   uv_req_t* first;
   uv_req_t* next;

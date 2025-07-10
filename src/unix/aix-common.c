@@ -76,9 +76,11 @@ int uv_exepath(char* buffer, size_t* size) {
     memcpy(buffer, original_exepath, *size);
     buffer[*size] = '\0';
     uv_mutex_unlock(&process_title_mutex);
+
     return 0;
   }
   uv_mutex_unlock(&process_title_mutex);
+
   pi.pi_pid = getpid();
   res = getargs(&pi, sizeof(pi), args, sizeof(args));
 

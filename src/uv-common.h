@@ -149,11 +149,18 @@ int uv__tcp_bind(uv_tcp_t* tcp,
                  unsigned int addrlen,
                  unsigned int flags);
 
+#ifdef _WIN32
+extern uv_once_t uv_init_guard_;
+#endif
 int uv__tcp_connect(uv_connect_t* req,
                    uv_tcp_t* handle,
                    const struct sockaddr* addr,
                    unsigned int addrlen,
-                   uv_connect_cb cb);
+                   uv_connect_cb cb)
+#ifdef _WIN32
+UV_REQUIRES_SHARED(&uv_init_guard_)
+#endif
+;
 
 int uv__udp_init_ex(uv_loop_t* loop,
                     uv_udp_t* handle,

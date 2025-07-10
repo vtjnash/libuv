@@ -32,18 +32,19 @@ struct uv__process_title {
 
 extern void uv__set_process_title(const char* title);
 
-static uv_mutex_t process_title_mutex;
 static uv_once_t process_title_mutex_once = UV_ONCE_INIT;
-static struct uv__process_title process_title;
-static void* args_mem;
+static uv_mutex_t process_title_mutex UV_GUARDED_BY(&process_title_mutex_once);
+static struct uv__process_title process_title UV_GUARDED_BY(&process_title_mutex);
+static void* args_mem UV_GUARDED_BY(&process_title_mutex);
 
 
-static void init_process_title_mutex_once(void) {
+static void init_process_title_mutex_once(void) UV_REQUIRES(&process_title_mutex_once) {
   uv_mutex_init(&process_title_mutex);
 }
 
 
-char** uv_setup_args(int argc, char** argv) {
+char** uv_setup_args(int argc, char** argv)
+UV_EXCLUDES(&process_title_mutex_once, &process_title_mutex) {
   struct uv__process_title pt;
   char** new_argv;
   size_t size;
@@ -86,72 +87,82 @@ char** uv_setup_args(int argc, char** argv) {
 
   pt.cap = argv[i - 1] + size - argv[0];
 
+  uv_once_assume_ran(&process_title_mutex_once);
+  uv_mutex_assume_locked(&process_title_mutex);
   args_mem = new_argv;
   process_title = pt;
+  uv_mutex_assume_unlocked(&process_title_mutex);
+
 
   return new_argv;
 }
 
 
-int uv_set_process_title(const char* title) UV_EXCLUDES(&process_title_mutex_once, &process_title_mutex) {
+int uv_set_process_title(const char* title)
+UV_EXCLUDES(&process_title_mutex_once, &process_title_mutex) {
   struct uv__process_title* pt;
   size_t len;
 
-  /* If uv_setup_args wasn't called or failed, we can't continue. */
-  if (args_mem == NULL)
-    return UV_ENOBUFS;
-
-  pt = &process_title;
-  len = strlen(title);
-
   uv_once(&process_title_mutex_once, init_process_title_mutex_once);
   uv_mutex_lock(&process_title_mutex);
 
-  if (len >= pt->cap) {
-    len = 0;
-    if (pt->cap > 0)
-      len = pt->cap - 1;
+  /* If uv_setup_args wasn't called or failed, we can't continue. */
+  if (args_mem != NULL) {
+    pt = &process_title;
+    len = strlen(title);
+  
+    if (len >= pt->cap) {
+      len = 0;
+      if (pt->cap > 0)
+        len = pt->cap - 1;
+    }
+  
+    memcpy(pt->str, title, len);
+    memset(pt->str + len, '\0', pt->cap - len);
+    pt->len = len;
+    uv__set_process_title(pt->str);
   }
 
-  memcpy(pt->str, title, len);
-  memset(pt->str + len, '\0', pt->cap - len);
-  pt->len = len;
-  uv__set_process_title(pt->str);
-
   uv_mutex_unlock(&process_title_mutex);
+
 
   return 0;
 }
 
 
-int uv_get_process_title(char* buffer, size_t size) UV_EXCLUDES(&process_title_mutex_once, &process_title_mutex) {
+int uv_get_process_title(char* buffer, size_t size)
+UV_EXCLUDES(&process_title_mutex_once, &process_title_mutex) {
+  int err;
+
   if (buffer == NULL || size == 0)
     return UV_EINVAL;
 
-  /* If uv_setup_args wasn't called or failed, we can't continue. */
-  if (args_mem == NULL)
-    return UV_ENOBUFS;
-
   uv_once(&process_title_mutex_once, init_process_title_mutex_once);
   uv_mutex_lock(&process_title_mutex);
 
-  if (size <= process_title.len) {
-    uv_mutex_unlock(&process_title_mutex);
-    return UV_ENOBUFS;
+  /* If uv_setup_args wasn't called or failed, we can't continue. */
+  if (args_mem == NULL)
+    err = UV_ENOBUFS;
+  else if (size <= process_title.len)
+    err = UV_ENOBUFS;
+  else
+    err = 0;
+
+  if (!err) {
+    if (process_title.len != 0)
+      memcpy(buffer, process_title.str, process_title.len + 1);
+  
+    buffer[process_title.len] = '\0';
   }
-
-  if (process_title.len != 0)
-    memcpy(buffer, process_title.str, process_title.len + 1);
-
-  buffer[process_title.len] = '\0';
-
+  
   uv_mutex_unlock(&process_title_mutex);
 
-  return 0;
+
+  return err;
 }
 
 
-void uv__process_title_cleanup(void) {
+void uv__process_title_cleanup(void) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv__free(args_mem);  /* Keep valgrind happy. */
   args_mem = NULL;
 }

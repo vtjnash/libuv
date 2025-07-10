@@ -69,11 +69,11 @@
 extern BOOLEAN NTAPI SystemFunction036(PVOID Buffer, ULONG BufferLength);
 
 /* Cached copy of the process title, plus a mutex guarding it. */
-static char *process_title;
-static CRITICAL_SECTION process_title_lock;
+static uv_mutex_t process_title_lock UV_GUARDED_BY(&uv_init_guard_);
+static char *process_title UV_GUARDED_BY(&process_title_lock);
 
 /* Frequency of the high-resolution clock. */
-static uint64_t hrtime_frequency_ = 0;
+static uint64_t hrtime_frequency_ UV_GUARDED_BY(&uv_init_guard_) = 0;
 
 
 /*
@@ -83,7 +83,7 @@ void uv__util_init(void) {
   LARGE_INTEGER perf_frequency;
 
   /* Initialize process title access mutex. */
-  InitializeCriticalSection(&process_title_lock);
+  uv_mutex_init(&process_title_lock);
 
   /* Retrieve high-resolution timer frequency
    * and precompute its reciprocal.
@@ -343,7 +343,8 @@ void uv__process_title_cleanup(void) {
 }
 
 
-int uv_set_process_title(const char* title) {
+int uv_set_process_title(const char* title)
+UV_EXCLUDES(&uv_init_guard_, &process_title_lock) {
   int err;
   int length;
   WCHAR* title_w = NULL;
@@ -351,8 +352,10 @@ int uv_set_process_title(const char* title) {
   uv__once_init();
 
   err = uv__convert_utf8_to_utf16(title, &title_w);
-  if (err)
+  if (err) {
+
     return err;
+  }
 
   /* If the title must be truncated insert a \0 terminator there */
   length = wcslen(title_w);
@@ -364,20 +367,21 @@ int uv_set_process_title(const char* title) {
     goto done;
   }
 
-  EnterCriticalSection(&process_title_lock);
+  uv_mutex_lock(&process_title_lock);
   uv__free(process_title);
   process_title = uv__strdup(title);
-  LeaveCriticalSection(&process_title_lock);
+  uv_mutex_unlock(&process_title_lock);
 
   err = 0;
 
 done:
   uv__free(title_w);
+
   return uv_translate_sys_error(err);
 }
 
 
-static int uv__get_process_title(void) {
+static int uv__get_process_title(void) UV_REQUIRES(&process_title_lock) {
   WCHAR title_w[MAX_TITLE_LENGTH];
   DWORD wlen;
 
@@ -389,7 +393,8 @@ static int uv__get_process_title(void) {
 }
 
 
-int uv_get_process_title(char* buffer, size_t size) {
+int uv_get_process_title(char* buffer, size_t size)
+UV_EXCLUDES(&uv_init_guard_, &process_title_lock) {
   size_t len;
   int r;
 
@@ -398,7 +403,7 @@ int uv_get_process_title(char* buffer, size_t size) {
 
   uv__once_init();
 
-  EnterCriticalSection(&process_title_lock);
+  uv_mutex_lock(&process_title_lock);
   /*
    * If the process_title was never read before nor explicitly set,
    * we must query it with getConsoleTitleW
@@ -406,7 +411,8 @@ int uv_get_process_title(char* buffer, size_t size) {
   if (process_title == NULL) {
     r = uv__get_process_title();
     if (r) {
-      LeaveCriticalSection(&process_title_lock);
+      uv_mutex_unlock(&process_title_lock);
+
       return r;
     }
   }
@@ -415,18 +421,21 @@ int uv_get_process_title(char* buffer, size_t size) {
   len = strlen(process_title) + 1;
 
   if (size < len) {
-    LeaveCriticalSection(&process_title_lock);
+    uv_mutex_unlock(&process_title_lock);
+
     return UV_ENOBUFS;
   }
 
   memcpy(buffer, process_title, len);
-  LeaveCriticalSection(&process_title_lock);
+  uv_mutex_unlock(&process_title_lock);
+
 
   return 0;
 }
 
 
-int uv_clock_gettime(uv_clock_id clock_id, uv_timespec_t* ts) {
+int uv_clock_gettime(uv_clock_id clock_id, uv_timespec_t* ts)
+UV_EXCLUDES(&uv_init_guard_) {
   FILETIME ft;
   int64_t t;
 
@@ -439,6 +448,7 @@ int uv_clock_gettime(uv_clock_id clock_id, uv_timespec_t* ts) {
       t = uv__hrtime(UV__NANOSEC);
       ts->tv_sec = t / 1000000000;
       ts->tv_nsec = t % 1000000000;
+
       return 0;
     case UV_CLOCK_REALTIME:
       GetSystemTimePreciseAsFileTime(&ft);
@@ -456,13 +466,16 @@ int uv_clock_gettime(uv_clock_id clock_id, uv_timespec_t* ts) {
 }
 
 
-uint64_t uv_hrtime(void) {
+uint64_t uv_hrtime(void) UV_EXCLUDES(&uv_init_guard_) {
+  uint64_t result;
   uv__once_init();
-  return uv__hrtime(UV__NANOSEC);
+  result = uv__hrtime(UV__NANOSEC);
+
+  return result;
 }
 
 
-uint64_t uv__hrtime(unsigned int scale) {
+uint64_t uv__hrtime(unsigned int scale) UV_REQUIRES_SHARED(&uv_init_guard_) {
   LARGE_INTEGER counter;
   double scaled_freq;
   double result;
@@ -527,7 +540,8 @@ unsigned int uv_available_parallelism(void) {
 }
 
 
-int uv_cpu_info(uv_cpu_info_t** cpu_infos_ptr, int* cpu_count_ptr) {
+int uv_cpu_info(uv_cpu_info_t** cpu_infos_ptr, int* cpu_count_ptr)
+UV_EXCLUDES(&uv_init_guard_) {
   uv_cpu_info_t* cpu_infos;
   SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION* sppi;
   DWORD sppi_size;
@@ -636,6 +650,7 @@ int uv_cpu_info(uv_cpu_info_t** cpu_infos_ptr, int* cpu_count_ptr) {
   *cpu_count_ptr = cpu_count;
   *cpu_infos_ptr = cpu_infos;
 
+
   return 0;
 
  error:
@@ -647,6 +662,7 @@ int uv_cpu_info(uv_cpu_info_t** cpu_infos_ptr, int* cpu_count_ptr) {
 
   uv__free(cpu_infos);
   uv__free(sppi);
+
 
   return uv_translate_sys_error(err);
 }
@@ -1466,7 +1482,8 @@ int uv_os_unsetenv(const char* name) {
 }
 
 
-int uv_os_gethostname(char* buffer, size_t* size) {
+int uv_os_gethostname(char* buffer, size_t* size)
+UV_EXCLUDES(&uv_init_guard_) {
   WCHAR buf[UV_MAXHOSTNAMESIZE];
 
   if (buffer == NULL || size == NULL || *size == 0)
@@ -1474,11 +1491,16 @@ int uv_os_gethostname(char* buffer, size_t* size) {
 
   uv__once_init(); /* Initialize winsock */
 
-  if (pGetHostNameW == NULL)
-    return UV_ENOSYS;
+  if (pGetHostNameW == NULL) {
 
-  if (pGetHostNameW(buf, UV_MAXHOSTNAMESIZE) != 0)
+    return UV_ENOSYS;
+  }
+
+  if (pGetHostNameW(buf, UV_MAXHOSTNAMESIZE) != 0) {
+
     return uv_translate_sys_error(WSAGetLastError());
+  }
+
 
   return uv__copy_utf16_to_utf8(buf, -1, buffer, size);
 }
@@ -1620,7 +1642,7 @@ int uv_thread_setpriority(uv_thread_t tid, int priority) {
   return 0;
 }
 
-int uv_os_uname(uv_utsname_t* buffer) {
+int uv_os_uname(uv_utsname_t* buffer) UV_EXCLUDES(&uv_init_guard_) {
   /* Implementation loosely based on
      https://github.com/gagern/gnulib/blob/master/lib/uname.c */
   OSVERSIONINFOW os_info;
@@ -1767,6 +1789,7 @@ int uv_os_uname(uv_utsname_t* buffer) {
       break;
   }
 
+
   return 0;
 
 error:
@@ -1774,6 +1797,7 @@ error:
   buffer->release[0] = '\0';
   buffer->version[0] = '\0';
   buffer->machine[0] = '\0';
+
   return r;
 }
 

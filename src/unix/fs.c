@@ -388,13 +388,17 @@ static int uv__fs_mkstemp(uv_fs_t* req) {
       uv__mkostemp != NULL) {
     r = uv__mkostemp(path, O_CLOEXEC);
 
-    if (r >= 0)
+    if (r >= 0) {
+
       return r;
+    }
 
     /* If mkostemp() returns EINVAL, it means the kernel doesn't
        support O_CLOEXEC, so we just fallback to mkstemp() below. */
-    if (errno != EINVAL)
+    if (errno != EINVAL) {
+
       goto clobber;
+    }
 
     /* We set the static variable so that next calls don't even
        try to use mkostemp. */
@@ -425,6 +429,8 @@ static int uv__fs_mkstemp(uv_fs_t* req) {
     uv_rwlock_assume_rdlocked(&req->loop->cloexec_lock);
     uv_rwlock_rdunlock(&req->loop->cloexec_lock);
   }
+
+
 
 clobber:
   if (r < 0)

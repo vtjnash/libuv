@@ -57,11 +57,11 @@ static const env_var_t required_vars[] = { /* keep me sorted */
 };
 
 
-static HANDLE uv_global_job_handle_;
 static uv_once_t uv_global_job_handle_init_guard_ = UV_ONCE_INIT;
+static HANDLE uv_global_job_handle_ UV_GUARDED_BY(uv_global_job_handle_init_guard_);
 
 
-static void uv__init_global_job_handle(void) {
+static void uv__init_global_job_handle(void) UV_REQUIRES(&uv_global_job_handle_init_guard_) {
   /* Create a job object and set it up to kill all contained processes when
    * it's closed. Since this handle is made non-inheritable and we're not
    * giving it to anyone, we're the only process holding a reference to it.
@@ -883,7 +883,8 @@ void uv__process_endgame(uv_loop_t* loop, uv_process_t* handle) {
 
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
-             const uv_process_options_t* options) UV_EXCLUDES(&uv_global_job_handle_init_guard_) {
+             const uv_process_options_t* options)
+UV_EXCLUDES(&uv_global_job_handle_init_guard_) {
   int i;
   int err = 0;
   WCHAR* path = NULL, *alloc_path = NULL;
@@ -1144,6 +1145,7 @@ int uv_spawn(uv_loop_t* loop,
       if (err != ERROR_ACCESS_DENIED)
         uv_fatal_error(err, "AssignProcessToJobObject");
     }
+
   }
 
   if (process_flags & CREATE_SUSPENDED) {

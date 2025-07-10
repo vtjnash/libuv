@@ -30,19 +30,19 @@
 #define MAX_THREADPOOL_SIZE 1024
 
 static uv_once_t once = UV_ONCE_INIT;
-static uv_cond_t cond;
-static uv_mutex_t mutex;
-static unsigned int idle_threads;
-static unsigned int slow_io_work_running;
-static unsigned int nthreads;
-static uv_thread_t* threads;
+static uv_cond_t cond UV_GUARDED_BY(&once);
+static uv_mutex_t mutex UV_GUARDED_BY(&once);
+static unsigned int idle_threads UV_GUARDED_BY(&mutex);
+static unsigned int slow_io_work_running UV_GUARDED_BY(&mutex);
+static unsigned int nthreads UV_GUARDED_BY(&once);
+static uv_thread_t* threads UV_GUARDED_BY(&once);
 static uv_thread_t default_threads[4];
-static struct uv__queue exit_message;
-static struct uv__queue wq;
-static struct uv__queue run_slow_work_message;
-static struct uv__queue slow_io_pending_wq;
+static struct uv__queue exit_message UV_GUARDED_BY(&mutex);
+static struct uv__queue wq UV_GUARDED_BY(&mutex);
+static struct uv__queue run_slow_work_message UV_GUARDED_BY(&mutex);
+static struct uv__queue slow_io_pending_wq UV_GUARDED_BY(&mutex);
 
-static unsigned int slow_work_thread_threshold(void) {
+static unsigned int slow_work_thread_threshold(void) UV_REQUIRES_SHARED(&once) {
   return (nthreads + 1) / 2;
 }
 
@@ -54,7 +54,8 @@ static void uv__cancelled(struct uv__work* w) {
 /* To avoid deadlock with uv_cancel() it's crucial that the worker
  * never holds the global mutex and the loop-local mutex at the same time.
  */
-static void worker(void* arg) UV_EXCLUDES(&mutex) {
+static void worker(void* arg)
+UV_EXCLUDES(&mutex) UV_REQUIRES_SHARED(&once) {
   struct uv__work* w;
   struct uv__queue* q;
   int is_slow_work;
@@ -140,7 +141,8 @@ static void worker(void* arg) UV_EXCLUDES(&mutex) {
 }
 
 
-static void post(struct uv__queue* q, enum uv__work_kind kind) UV_EXCLUDES(&mutex) {
+static void post(struct uv__queue* q, enum uv__work_kind kind)
+UV_EXCLUDES(&mutex) UV_REQUIRES_SHARED(&once) {
   uv_mutex_lock(&mutex);
   if (kind == UV__WORK_SLOW_IO) {
     /* Insert into a separate queue. */
@@ -165,7 +167,11 @@ static void post(struct uv__queue* q, enum uv__work_kind kind) UV_EXCLUDES(&mute
 /* TODO(itodorov) - zos: revisit when Woz compiler is available. */
 __attribute__((destructor))
 #endif
-void uv__threadpool_cleanup(void) UV_EXCLUDES(&mutex) {
+void uv__threadpool_cleanup(void) UV_EXCLUDES(&mutex) UV_NO_THREAD_SAFETY_ANALYSIS {
+  /* TODO(jwn): UV_NO_THREAD_SAFETY_ANALYSIS is necessary since the read of
+   * nthreads would be a thread-safety violation if we could try to cleanup the
+   * threadpool on one thread while another thread was just scheduling work for
+   * the first time. */
   unsigned int i;
 
   if (nthreads == 0)
@@ -191,7 +197,7 @@ void uv__threadpool_cleanup(void) UV_EXCLUDES(&mutex) {
 }
 
 
-static void init_threads(void) {
+static void init_threads(void) UV_REQUIRES(once) {
   uv_thread_options_t config;
   unsigned int i;
   const char* val;
@@ -221,9 +227,11 @@ static void init_threads(void) {
   if (uv_mutex_init(&mutex))
     abort();
 
+  uv_mutex_assume_locked(&mutex);
   uv__queue_init(&wq);
   uv__queue_init(&slow_io_pending_wq);
   uv__queue_init(&run_slow_work_message);
+  uv_mutex_assume_unlocked(&mutex);
 
   if (uv_sem_init(&sem, 0))
     abort();
@@ -250,7 +258,7 @@ static void reset_once(void) {
 #endif
 
 
-static void init_once(void) {
+static void init_once(void) UV_REQUIRES(once) {
 #ifndef _WIN32
   /* Re-initialize the threadpool after fork.
    * Note that this discards the global mutex and condition as well
@@ -267,19 +275,22 @@ void uv__work_submit(uv_loop_t* loop,
                      struct uv__work* w,
                      enum uv__work_kind kind,
                      void (*work)(struct uv__work* w),
-                     void (*done)(struct uv__work* w, int status)) UV_EXCLUDES(&once, &mutex) {
+                     void (*done)(struct uv__work* w, int status))
+UV_EXCLUDES(&once, &mutex) {
   uv_once(&once, init_once);
   w->loop = loop;
   w->work = work;
   w->done = done;
   post(&w->wq, kind);
+
 }
 
 
 /* TODO(bnoordhuis) teach libuv how to cancel file operations
  * that go through io_uring instead of the thread pool.
  */
-static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) UV_EXCLUDES(&once, &mutex) {
+static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w)
+UV_EXCLUDES(&once, &mutex) {
   int cancelled;
 
   uv_once(&once, init_once);  /* Ensure |mutex| is initialized. */
@@ -293,14 +304,17 @@ static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) U
   uv_mutex_unlock(&w->loop->wq_mutex);
   uv_mutex_unlock(&mutex);
 
-  if (!cancelled)
+  if (!cancelled) {
+
     return UV_EBUSY;
+  }
 
   w->work = uv__cancelled;
   uv_mutex_lock(&loop->wq_mutex);
   uv__queue_insert_tail(&loop->wq, &w->wq);
   uv_async_send(&loop->wq_async);
   uv_mutex_unlock(&loop->wq_mutex);
+
 
   return 0;
 }

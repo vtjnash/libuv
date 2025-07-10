@@ -57,11 +57,11 @@ void uv_once(uv_once_t* guard, uv__once_cb callback) UV_NO_THREAD_SAFETY_ANALYSI
 /* Verify that uv_thread_t can be stored in a TLS slot. */
 STATIC_ASSERT(sizeof(uv_thread_t) <= sizeof(void*));
 
-static uv_key_t uv__current_thread_key;
 static uv_once_t uv__current_thread_init_guard = UV_ONCE_INIT;
+static uv_key_t uv__current_thread_key UV_GUARDED_BY(&uv__current_thread_init_guard);
 
 
-static void uv__init_current_thread_key(void) {
+static void uv__init_current_thread_key(void) UV_REQUIRES(&uv__current_thread_init_guard) {
   if (uv_key_create(&uv__current_thread_key))
     abort();
 }
@@ -84,6 +84,7 @@ static UINT __stdcall uv__thread_start(void* arg) UV_EXCLUDES(&uv__current_threa
 
   uv_once(&uv__current_thread_init_guard, uv__init_current_thread_key);
   uv_key_set(&uv__current_thread_key, ctx.self);
+
 
   ctx.entry(ctx.arg);
 
@@ -264,6 +265,7 @@ uv_thread_t uv_thread_self(void) UV_EXCLUDES(&uv__current_thread_init_guard) {
       }
       uv_key_set(&uv__current_thread_key, key);
   }
+
   return key;
 }
 

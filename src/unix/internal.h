@@ -299,10 +299,16 @@ void uv__tty_close(uv_tty_t* handle);
 int uv__pipe_listen(uv_pipe_t* handle, int backlog, uv_connection_cb cb);
 
 /* signal */
-void uv__signal_close(uv_signal_t* handle);
-void uv__signal_global_once_init(void);
-void uv__signal_loop_cleanup(uv_loop_t* loop);
-int uv__signal_loop_fork(uv_loop_t* loop);
+extern uv_once_t uv__signal_global_init_guard;
+void uv__signal_cleanup(void) UV_REQUIRES(&uv__signal_global_init_guard);
+void uv__signal_close(uv_signal_t* handle)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
+void uv__signal_global_once_init(void)
+UV_EXCLUDES(&uv__signal_global_init_guard) UV_ACQUIRE_SHARED(&uv__signal_global_init_guard);
+void uv__signal_loop_cleanup(uv_loop_t* loop)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
+int uv__signal_loop_fork(uv_loop_t* loop)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
 
 /* platform specific */
 uint64_t uv__hrtime(uv_clocktype_t type);

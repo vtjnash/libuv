@@ -451,18 +451,18 @@ typedef struct uv__posix_spawn_fncs_tag {
 
 
 static uv_once_t posix_spawn_init_once = UV_ONCE_INIT;
-static uv__posix_spawn_fncs_t posix_spawn_fncs;
-static int posix_spawn_can_use_setsid;
+static uv__posix_spawn_fncs_t posix_spawn_fncs UV_GUARDED_BY(posix_spawn_init_once);
+static int posix_spawn_can_use_setsid UV_GUARDED_BY(posix_spawn_init_once);
 
 
-static void uv__spawn_init_posix_spawn_fncs(void) {
+static void uv__spawn_init_posix_spawn_fncs(void) UV_REQUIRES(&posix_spawn_init_once) {
   /* Try to locate all non-portable functions at runtime */
   posix_spawn_fncs.file_actions.addchdir_np =
     dlsym(RTLD_DEFAULT, "posix_spawn_file_actions_addchdir_np");
 }
 
 
-static void uv__spawn_init_can_use_setsid(void) {
+static void uv__spawn_init_can_use_setsid(void) UV_REQUIRES(&posix_spawn_init_once) {
   int which[] = {CTL_KERN, KERN_OSRELEASE};
   unsigned major;
   unsigned minor;
@@ -482,7 +482,7 @@ static void uv__spawn_init_can_use_setsid(void) {
 }
 
 
-static void uv__spawn_init_posix_spawn(void) {
+static void uv__spawn_init_posix_spawn(void) UV_REQUIRES(&posix_spawn_init_once) {
   /* Init handles to all potentially non-defined functions */
   uv__spawn_init_posix_spawn_fncs();
 
@@ -494,7 +494,7 @@ static void uv__spawn_init_posix_spawn(void) {
 static int uv__spawn_set_posix_spawn_attrs(
     posix_spawnattr_t* attrs,
     const uv__posix_spawn_fncs_t* posix_spawn_fncs,
-    const uv_process_options_t* options) {
+    const uv_process_options_t* options) UV_REQUIRES_SHARED(&posix_spawn_init_once) {
   int err;
   unsigned int flags;
   sigset_t signal_set;
@@ -810,7 +810,7 @@ static int uv__spawn_and_init_child_posix_spawn(
     int stdio_count,
     int (*pipes)[2],
     pid_t* pid,
-    const uv__posix_spawn_fncs_t* posix_spawn_fncs) {
+    const uv__posix_spawn_fncs_t* posix_spawn_fncs) UV_REQUIRES_SHARED(&posix_spawn_init_once) {
   int err;
   posix_spawnattr_t attrs;
   posix_spawn_file_actions_t actions;
@@ -892,7 +892,11 @@ static int uv__spawn_and_init_child(
     const uv_process_options_t* options,
     int stdio_count,
     int (*pipes)[2],
-    pid_t* pid) UV_EXCLUDES(&posix_spawn_init_once) {
+    pid_t* pid)
+#if defined(__APPLE__)
+UV_EXCLUDES(&posix_spawn_init_once)
+#endif
+{
   int signal_pipe[2] = { -1, -1 };
   int status;
   int err;
@@ -924,8 +928,10 @@ static int uv__spawn_and_init_child(
   /* The posix_spawn flow will return UV_ENOSYS if any of the posix_spawn_x_np
    * non-standard functions is both _needed_ and _undefined_. In those cases,
    * default back to the fork/execve strategy. For all other errors, just fail. */
-  if (err != UV_ENOSYS)
+  if (err != UV_ENOSYS) {
+
     return err;
+  }
 
 #endif
 
@@ -950,8 +956,12 @@ static int uv__spawn_and_init_child(
    * the parent polls the read end until it EOFs or errors with EPIPE.
    */
   err = uv__make_pipe(signal_pipe, 0);
-  if (err)
+  if (err) {
+#if defined(__APPLE__)
+
+#endif
     return err;
+  }
 
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
@@ -988,6 +998,10 @@ static int uv__spawn_and_init_child(
   }
 
   uv__close_nocheckstdio(signal_pipe[0]);
+
+#if defined(__APPLE__)
+
+#endif
 
   return err;
 }

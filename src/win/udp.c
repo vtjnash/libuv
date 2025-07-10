@@ -306,7 +306,7 @@ static void uv__udp_queue_recv(uv_loop_t* loop, uv_udp_t* handle) {
 
 
 int uv__udp_recv_start(uv_udp_t* handle, uv_alloc_cb alloc_cb,
-    uv_udp_recv_cb recv_cb) {
+    uv_udp_recv_cb recv_cb) UV_REQUIRES_SHARED(&uv_init_guard_) {
   uv_loop_t* loop = handle->loop;
   int err;
 
@@ -531,7 +531,7 @@ void uv__process_udp_send_req(uv_loop_t* loop, uv_udp_t* handle,
 static int uv__udp_set_membership4(uv_udp_t* handle,
                                    const struct sockaddr_in* multicast_addr,
                                    const char* interface_addr,
-                                   uv_membership membership) {
+                                   uv_membership membership) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int err;
   int optname;
   struct ip_mreq mreq;
@@ -585,7 +585,7 @@ static int uv__udp_set_membership4(uv_udp_t* handle,
 int uv__udp_set_membership6(uv_udp_t* handle,
                             const struct sockaddr_in6* multicast_addr,
                             const char* interface_addr,
-                            uv_membership membership) {
+                            uv_membership membership) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int optname;
   int err;
   struct ipv6_mreq mreq;
@@ -641,7 +641,7 @@ static int uv__udp_set_source_membership4(uv_udp_t* handle,
                                           const struct sockaddr_in* multicast_addr,
                                           const char* interface_addr,
                                           const struct sockaddr_in* source_addr,
-                                          uv_membership membership) {
+                                          uv_membership membership) UV_REQUIRES_SHARED(&uv_init_guard_) {
   struct ip_mreq_source mreq;
   int optname;
   int err;
@@ -693,7 +693,7 @@ int uv__udp_set_source_membership6(uv_udp_t* handle,
                                    const struct sockaddr_in6* multicast_addr,
                                    const char* interface_addr,
                                    const struct sockaddr_in6* source_addr,
-                                   uv_membership membership) {
+                                   uv_membership membership) UV_REQUIRES_SHARED(&uv_init_guard_) {
   struct group_source_req mreq;
   struct sockaddr_in6 addr6;
   int optname;
@@ -749,7 +749,7 @@ int uv__udp_set_source_membership6(uv_udp_t* handle,
 int uv_udp_set_membership(uv_udp_t* handle,
                           const char* multicast_addr,
                           const char* interface_addr,
-                          uv_membership membership) {
+                          uv_membership membership) UV_REQUIRES_SHARED(&uv_init_guard_) {
   struct sockaddr_in addr4;
   struct sockaddr_in6 addr6;
 
@@ -766,7 +766,7 @@ int uv_udp_set_source_membership(uv_udp_t* handle,
                                  const char* multicast_addr,
                                  const char* interface_addr,
                                  const char* source_addr,
-                                 uv_membership membership) {
+                                 uv_membership membership) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int err;
   struct sockaddr_storage mcast_addr;
   struct sockaddr_in* mcast_addr4;
@@ -1076,7 +1076,7 @@ int uv__udp_try_send(uv_udp_t* handle,
                      const uv_buf_t bufs[],
                      unsigned int nbufs,
                      const struct sockaddr* addr,
-                     unsigned int addrlen) {
+                     unsigned int addrlen) UV_REQUIRES_SHARED(&uv_init_guard_) {
   DWORD bytes;
   const struct sockaddr* bind_addr;
   struct sockaddr_storage converted;

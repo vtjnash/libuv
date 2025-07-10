@@ -30,18 +30,20 @@
 
 RB_HEAD(uv_signal_tree_s, uv_signal_s);
 
-static struct uv_signal_tree_s uv__signal_tree = RB_INITIALIZER(uv__signal_tree);
-static CRITICAL_SECTION uv__signal_lock;
+uv_mutex_t uv__signal_lock UV_GUARDED_BY(uv_init_guard_);
+static struct uv_signal_tree_s uv__signal_tree UV_GUARDED_BY(uv__signal_lock) = RB_INITIALIZER(uv__signal_tree);
 
-static BOOL WINAPI uv__signal_control_handler(DWORD type);
+static BOOL WINAPI uv__signal_control_handler(DWORD type)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock);
 
-int uv__signal_start(uv_signal_t* handle,
+static int uv__signal_start(uv_signal_t* handle,
                      uv_signal_cb signal_cb,
                      int signum,
-                     int oneshot);
+                     int oneshot)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock);
 
 void uv__signals_init(void) {
-  InitializeCriticalSection(&uv__signal_lock);
+  uv_mutex_init(&uv__signal_lock);
   if (!SetConsoleCtrlHandler(uv__signal_control_handler, TRUE))
     abort();
 }
@@ -78,14 +80,15 @@ RB_GENERATE_STATIC(uv_signal_tree_s, uv_signal_s, tree_entry, uv__signal_compare
  * Returns 1 if the signal was dispatched to any watcher, or 0 if there were
  * no active signal watchers observing this signal.
  */
-int uv__signal_dispatch(int signum) {
+int uv__signal_dispatch(int signum)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   uv_signal_t lookup;
   uv_signal_t* handle;
   int dispatched;
 
   dispatched = 0;
 
-  EnterCriticalSection(&uv__signal_lock);
+  uv_mutex_lock(&uv__signal_lock);
 
   lookup.signum = signum;
   lookup.loop = NULL;
@@ -108,7 +111,7 @@ int uv__signal_dispatch(int signum) {
       handle->flags |= UV_SIGNAL_ONE_SHOT_DISPATCHED;
   }
 
-  LeaveCriticalSection(&uv__signal_lock);
+  uv_mutex_unlock(&uv__signal_lock);
 
   return dispatched;
 }
@@ -158,19 +161,20 @@ int uv_signal_init(uv_loop_t* loop, uv_signal_t* handle) {
 }
 
 
-int uv_signal_stop(uv_signal_t* handle) {
+int uv_signal_stop(uv_signal_t* handle)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   uv_signal_t* removed_handle;
 
   /* If the watcher wasn't started, this is a no-op. */
   if (handle->signum == 0)
     return 0;
 
-  EnterCriticalSection(&uv__signal_lock);
+  uv_mutex_lock(&uv__signal_lock);
 
   removed_handle = RB_REMOVE(uv_signal_tree_s, &uv__signal_tree, handle);
   assert(removed_handle == handle);
 
-  LeaveCriticalSection(&uv__signal_lock);
+  uv_mutex_unlock(&uv__signal_lock);
 
   handle->signum = 0;
   uv__handle_stop(handle);
@@ -179,14 +183,16 @@ int uv_signal_stop(uv_signal_t* handle) {
 }
 
 
-int uv_signal_start(uv_signal_t* handle, uv_signal_cb signal_cb, int signum) {
+int uv_signal_start(uv_signal_t* handle, uv_signal_cb signal_cb, int signum)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   return uv__signal_start(handle, signal_cb, signum, 0);
 }
 
 
 int uv_signal_start_oneshot(uv_signal_t* handle,
                             uv_signal_cb signal_cb,
-                            int signum) {
+                            int signum)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   return uv__signal_start(handle, signal_cb, signum, 1);
 }
 
@@ -215,7 +221,7 @@ int uv__signal_start(uv_signal_t* handle,
     assert(r == 0);
   }
 
-  EnterCriticalSection(&uv__signal_lock);
+  uv_mutex_lock(&uv__signal_lock);
 
   handle->signum = signum;
   if (oneshot)
@@ -223,7 +229,7 @@ int uv__signal_start(uv_signal_t* handle,
 
   RB_INSERT(uv_signal_tree_s, &uv__signal_tree, handle);
 
-  LeaveCriticalSection(&uv__signal_lock);
+  uv_mutex_unlock(&uv__signal_lock);
 
   handle->signal_cb = signal_cb;
   uv__handle_start(handle);

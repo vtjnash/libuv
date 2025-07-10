@@ -57,9 +57,9 @@
 #include <as400_protos.h>
 #include <as400_types.h>
 
-char* original_exepath = NULL;
-uv_mutex_t process_title_mutex;
 uv_once_t process_title_mutex_once = UV_ONCE_INIT;
+uv_mutex_t process_title_mutex UV_GUARDED_BY(&process_title_mutex_once);
+char* original_exepath UV_GUARDED_BY(&process_title_mutex) = NULL;
 
 typedef struct {
   int bytes_available;

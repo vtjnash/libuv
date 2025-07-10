@@ -33,7 +33,7 @@
 #include <unistd.h>  /* sysconf */
 
 static uv_once_t once = UV_ONCE_INIT;
-static mach_timebase_info_data_t timebase;
+static mach_timebase_info_data_t timebase UV_GUARDED_BY(&once);
 
 
 int uv__platform_loop_init(uv_loop_t* loop) {
@@ -51,15 +51,18 @@ void uv__platform_loop_delete(uv_loop_t* loop) {
 }
 
 
-static void uv__hrtime_init_once(void) {
+static void uv__hrtime_init_once(void) UV_REQUIRES(&once) {
   if (KERN_SUCCESS != mach_timebase_info(&timebase))
     abort();
 }
 
 
 uint64_t uv__hrtime(uv_clocktype_t type) UV_EXCLUDES(&once) {
+  uint64_t result;
   uv_once(&once, uv__hrtime_init_once);
-  return mach_continuous_time() * timebase.numer / timebase.denom;
+  result = mach_continuous_time() * timebase.numer / timebase.denom;
+
+  return result;
 }
 
 

@@ -92,9 +92,11 @@ NTSTATUS uv__RtlUnicodeStringInit(
                       UV__WORK_FAST_IO,                                       \
                       uv__fs_work,                                            \
                       uv__fs_done);                                           \
+      uv_once_release(&uv_init_guard_);                                       \
       return 0;                                                               \
     } else {                                                                  \
       uv__fs_work(&req->work_req);                                            \
+      uv_once_release(&uv_init_guard_);                                       \
       return req->result;                                                     \
     }                                                                         \
   }                                                                           \
@@ -109,10 +111,12 @@ NTSTATUS uv__RtlUnicodeStringInit(
                       UV__WORK_FAST_IO,                                       \
                       uv__fs_work,                                            \
                       uv__fs_done);                                           \
+      uv_once_release(&uv_init_guard_);                                       \
       return 0;                                                               \
     }                                                                         \
     else {                                                                    \
       uv__fs_work(&req->work_req);                                            \
+      uv_once_release(&uv_init_guard_);                                       \
       if (req->result < 0)                                                    \
         return req->result;                                                   \
       return 0;                                                               \
@@ -185,9 +189,9 @@ const WCHAR LONG_PATH_PREFIX_LEN = 4;
 const WCHAR UNC_PATH_PREFIX[] = L"\\\\?\\UNC\\";
 const WCHAR UNC_PATH_PREFIX_LEN = 8;
 
-static int uv__file_symlink_usermode_flag = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+static int uv__file_symlink_usermode_flag = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE; /* TODO(jwn): missing atomic */
 
-static DWORD uv__allocation_granularity;
+static DWORD uv__allocation_granularity UV_GUARDED_BY(uv_init_guard_);
 
 typedef enum {
   FS__STAT_PATH_SUCCESS,
@@ -423,7 +427,8 @@ INLINE static int fs__capture_path(uv_fs_t* req, const char* path,
 
 
 INLINE static void uv__fs_req_init(uv_loop_t* loop, uv_fs_t* req,
-    uv_fs_type fs_type, const uv_fs_cb cb) {
+    uv_fs_type fs_type, const uv_fs_cb cb)
+UV_ACQUIRE_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv_init_guard_) {
   uv__once_init();
   UV_REQ_INIT(loop, req, UV_FS);
   req->flags = 0;
@@ -723,7 +728,8 @@ LONG fs__filemap_ex_filter(LONG excode, PEXCEPTION_POINTERS pep,
 }
 
 
-void fs__read_filemap(uv_fs_t* req, struct uv__fd_info_s* fd_info) UV_EXCLUDES(&uv__fd_hash_mutex) {
+void fs__read_filemap(uv_fs_t* req, struct uv__fd_info_s* fd_info)
+UV_EXCLUDES(&uv__fd_hash_mutex) UV_REQUIRES_SHARED(&uv_init_guard_) {
   HANDLE file = req->file.hFile; /* VERIFY_HANDLE done in fs__read */
   int rw_flags = fd_info->flags &
     (UV_FS_O_RDONLY | UV_FS_O_WRONLY | UV_FS_O_RDWR);
@@ -820,7 +826,8 @@ void fs__read_filemap(uv_fs_t* req, struct uv__fd_info_s* fd_info) UV_EXCLUDES(&
   return;
 }
 
-void fs__read(uv_fs_t* req) UV_EXCLUDES(&uv__fd_hash_mutex) {
+void fs__read(uv_fs_t* req)
+UV_EXCLUDES(&uv__fd_hash_mutex) UV_REQUIRES_SHARED(&uv_init_guard_) {
   HANDLE handle = req->file.hFile;
   int64_t offset = req->fs.info.offset;
   OVERLAPPED overlapped, *overlapped_ptr;
@@ -896,7 +903,8 @@ void fs__read(uv_fs_t* req) UV_EXCLUDES(&uv__fd_hash_mutex) {
 
 
 void fs__write_filemap(uv_fs_t* req, HANDLE file,
-                       struct uv__fd_info_s* fd_info) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                       struct uv__fd_info_s* fd_info)
+UV_EXCLUDES(&uv__fd_hash_mutex) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int force_append = fd_info->flags & UV_FS_O_APPEND;
   int rw_flags = fd_info->flags &
     (UV_FS_O_RDONLY | UV_FS_O_WRONLY | UV_FS_O_RDWR);
@@ -1018,7 +1026,8 @@ void fs__write_filemap(uv_fs_t* req, HANDLE file,
   SET_REQ_RESULT(req, done_write);
 }
 
-void fs__write(uv_fs_t* req) UV_EXCLUDES(&uv__fd_hash_mutex) {
+void fs__write(uv_fs_t* req)
+UV_EXCLUDES(&uv__fd_hash_mutex) UV_REQUIRES_SHARED(&uv_init_guard_) {
   HANDLE handle = req->file.hFile;;
   int64_t offset = req->fs.info.offset;
   OVERLAPPED overlapped, *overlapped_ptr;
@@ -2844,7 +2853,7 @@ error:
 }
 
 
-static void fs__symlink(uv_fs_t* req) {
+static void fs__symlink(uv_fs_t* req) UV_REQUIRES_SHARED(&uv_init_guard_) {
   WCHAR* pathw;
   WCHAR* new_pathw;
   int flags;
@@ -3095,7 +3104,8 @@ retry_get_full_path_name:
 }
 
 
-static void uv__fs_work(struct uv__work* w) UV_EXCLUDES(&uv__fd_hash_mutex) {
+static void uv__fs_work(struct uv__work* w)
+UV_EXCLUDES(&uv__fd_hash_mutex) UV_REQUIRES_SHARED(&uv_init_guard_) {
   uv_fs_t* req;
 
   req = container_of(w, uv_fs_t, work_req);
@@ -3198,13 +3208,14 @@ void uv_fs_req_cleanup(uv_fs_t* req) {
 
 
 int uv_fs_open(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
-    int mode, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    int mode, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_OPEN);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3214,7 +3225,7 @@ int uv_fs_open(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
 }
 
 
-int uv_fs_close(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_close(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_CLOSE);
   req->file.hFile = handle;
   POST;
@@ -3227,11 +3238,12 @@ int uv_fs_read(uv_loop_t* loop,
                const uv_buf_t bufs[],
                unsigned int nbufs,
                int64_t offset,
-               uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+               uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_READ);
 
   if (bufs == NULL || nbufs == 0) {
     SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+
     return UV_EINVAL;
   }
 
@@ -3244,6 +3256,7 @@ int uv_fs_read(uv_loop_t* loop,
 
   if (req->fs.info.bufs == NULL) {
     SET_REQ_UV_ERROR(req, UV_ENOMEM, ERROR_OUTOFMEMORY);
+
     return UV_ENOMEM;
   }
 
@@ -3260,11 +3273,12 @@ int uv_fs_write(uv_loop_t* loop,
                 const uv_buf_t bufs[],
                 unsigned int nbufs,
                 int64_t offset,
-                uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_WRITE);
 
   if (bufs == NULL || nbufs == 0) {
     SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+
     return UV_EINVAL;
   }
 
@@ -3277,6 +3291,7 @@ int uv_fs_write(uv_loop_t* loop,
 
   if (req->fs.info.bufs == NULL) {
     SET_REQ_UV_ERROR(req, UV_ENOMEM, ERROR_OUTOFMEMORY);
+
     return UV_ENOMEM;
   }
 
@@ -3288,13 +3303,14 @@ int uv_fs_write(uv_loop_t* loop,
 
 
 int uv_fs_unlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
-    uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_UNLINK);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3303,13 +3319,14 @@ int uv_fs_unlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
 
 
 int uv_fs_mkdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int mode,
-    uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_MKDIR);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3321,13 +3338,14 @@ int uv_fs_mkdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int mode,
 int uv_fs_mkdtemp(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* tpl,
-                  uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                  uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_MKDTEMP);
   err = fs__capture_path(req, tpl, NULL, TRUE);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3338,13 +3356,14 @@ int uv_fs_mkdtemp(uv_loop_t* loop,
 int uv_fs_mkstemp(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* tpl,
-                  uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                  uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_MKSTEMP);
   err = fs__capture_path(req, tpl, NULL, TRUE);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3352,13 +3371,14 @@ int uv_fs_mkstemp(uv_loop_t* loop,
 }
 
 
-int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_RMDIR);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3367,13 +3387,14 @@ int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV
 
 
 int uv_fs_scandir(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
-    uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_SCANDIR);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3384,13 +3405,14 @@ int uv_fs_scandir(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
 int uv_fs_opendir(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* path,
-                  uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                  uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_OPENDIR);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
   POST;
@@ -3399,13 +3421,14 @@ int uv_fs_opendir(uv_loop_t* loop,
 int uv_fs_readdir(uv_loop_t* loop,
                   uv_fs_t* req,
                   uv_dir_t* dir,
-                  uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                  uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_READDIR);
 
   if (dir == NULL ||
       dir->dirents == NULL ||
       dir->dir_handle == INVALID_HANDLE_VALUE) {
     SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+
     return UV_EINVAL;
   }
 
@@ -3416,10 +3439,11 @@ int uv_fs_readdir(uv_loop_t* loop,
 int uv_fs_closedir(uv_loop_t* loop,
                    uv_fs_t* req,
                    uv_dir_t* dir,
-                   uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                   uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_CLOSEDIR);
   if (dir == NULL) {
     SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+
     return UV_EINVAL;
   }
   req->ptr = dir;
@@ -3427,13 +3451,14 @@ int uv_fs_closedir(uv_loop_t* loop,
 }
 
 int uv_fs_link(uv_loop_t* loop, uv_fs_t* req, const char* path,
-    const char* new_path, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    const char* new_path, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_LINK);
   err = fs__capture_path(req, path, new_path, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3442,13 +3467,14 @@ int uv_fs_link(uv_loop_t* loop, uv_fs_t* req, const char* path,
 
 
 int uv_fs_symlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
-    const char* new_path, int flags, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    const char* new_path, int flags, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_SYMLINK);
   err = fs__capture_path(req, path, new_path, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3458,13 +3484,14 @@ int uv_fs_symlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
 
 
 int uv_fs_readlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
-    uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_READLINK);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3473,19 +3500,21 @@ int uv_fs_readlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
 
 
 int uv_fs_realpath(uv_loop_t* loop, uv_fs_t* req, const char* path,
-    uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_REALPATH);
 
   if (!path) {
     SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+
     return UV_EINVAL;
   }
 
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3494,13 +3523,14 @@ int uv_fs_realpath(uv_loop_t* loop, uv_fs_t* req, const char* path,
 
 
 int uv_fs_chown(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_uid_t uid,
-    uv_gid_t gid, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_gid_t gid, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_CHOWN);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3509,20 +3539,21 @@ int uv_fs_chown(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_uid_t uid,
 
 
 int uv_fs_fchown(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t hFile, uv_uid_t uid,
-    uv_gid_t gid, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_gid_t gid, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FCHOWN);
   POST;
 }
 
 
 int uv_fs_lchown(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_uid_t uid,
-    uv_gid_t gid, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_gid_t gid, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_LCHOWN);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3530,13 +3561,14 @@ int uv_fs_lchown(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_uid_t uid,
 }
 
 
-int uv_fs_stat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_stat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_STAT);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3544,13 +3576,14 @@ int uv_fs_stat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_
 }
 
 
-int uv_fs_lstat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_lstat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_LSTAT);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3558,7 +3591,7 @@ int uv_fs_lstat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV
 }
 
 
-int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FSTAT);
   req->file.hFile = handle;
   POST;
@@ -3566,13 +3599,14 @@ int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) U
 
 
 int uv_fs_rename(uv_loop_t* loop, uv_fs_t* req, const char* path,
-    const char* new_path, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    const char* new_path, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_RENAME);
   err = fs__capture_path(req, path, new_path, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3580,14 +3614,14 @@ int uv_fs_rename(uv_loop_t* loop, uv_fs_t* req, const char* path,
 }
 
 
-int uv_fs_fsync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_fsync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FSYNC);
   req->file.hFile = handle;
   POST;
 }
 
 
-int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FDATASYNC);
   req->file.hFile = handle;
   POST;
@@ -3595,7 +3629,7 @@ int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, uv_fs_cb c
 
 
 int uv_fs_ftruncate(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle,
-    int64_t offset, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    int64_t offset, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FTRUNCATE);
   req->file.hFile = handle;
   req->fs.info.offset = offset;
@@ -3608,7 +3642,7 @@ int uv_fs_copyfile(uv_loop_t* loop,
                    const char* path,
                    const char* new_path,
                    int flags,
-                   uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                   uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_COPYFILE);
@@ -3617,12 +3651,14 @@ int uv_fs_copyfile(uv_loop_t* loop,
                 UV_FS_COPYFILE_FICLONE |
                 UV_FS_COPYFILE_FICLONE_FORCE)) {
     SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+
     return UV_EINVAL;
   }
 
   err = fs__capture_path(req, path, new_path, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3632,7 +3668,7 @@ int uv_fs_copyfile(uv_loop_t* loop,
 
 
 int uv_fs_sendfile(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t fd_out,
-    uv_os_fd_t fd_in, int64_t in_offset, size_t length, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_os_fd_t fd_in, int64_t in_offset, size_t length, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_SENDFILE);
   req->file.hFile = fd_in;
   req->fs.info.hFile_out = fd_out;
@@ -3646,13 +3682,14 @@ int uv_fs_access(uv_loop_t* loop,
                  uv_fs_t* req,
                  const char* path,
                  int flags,
-                 uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                 uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_ACCESS);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3662,13 +3699,14 @@ int uv_fs_access(uv_loop_t* loop,
 
 
 int uv_fs_chmod(uv_loop_t* loop, uv_fs_t* req, const char* path, int mode,
-    uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_CHMOD);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3678,7 +3716,7 @@ int uv_fs_chmod(uv_loop_t* loop, uv_fs_t* req, const char* path, int mode,
 
 
 int uv_fs_fchmod(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, int mode,
-                 uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                 uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FCHMOD);
   req->file.hFile = handle;
   req->fs.info.mode = mode;
@@ -3692,13 +3730,14 @@ int uv_fs_utime(uv_loop_t* loop, uv_fs_t* req, const char* path, double atime,
 }
 
 int uv_fs_utime_ex(uv_loop_t* loop, uv_fs_t* req, const char* path,
-                   double btime, double atime, double mtime, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                   double btime, double atime, double mtime, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_UTIME);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3716,7 +3755,7 @@ int uv_fs_futime(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle, double atime,
 
 
 int uv_fs_futime_ex(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle,
-                    double btime, double atime, double mtime, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                    double btime, double atime, double mtime, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   INIT(UV_FS_FUTIME);
   req->file.hFile = handle;
   req->fs.time.btime = btime;
@@ -3726,13 +3765,14 @@ int uv_fs_futime_ex(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t handle,
 }
 
 int uv_fs_lutime(uv_loop_t* loop, uv_fs_t* req, const char* path, double atime,
-    double mtime, uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+    double mtime, uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_LUTIME);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 
@@ -3745,13 +3785,14 @@ int uv_fs_lutime(uv_loop_t* loop, uv_fs_t* req, const char* path, double atime,
 int uv_fs_statfs(uv_loop_t* loop,
                  uv_fs_t* req,
                  const char* path,
-                 uv_fs_cb cb) UV_EXCLUDES(&uv__fd_hash_mutex) {
+                 uv_fs_cb cb) UV_EXCLUDES(&uv_init_guard_, &uv__fd_hash_mutex) {
   int err;
 
   INIT(UV_FS_STATFS);
   err = fs__capture_path(req, path, NULL, cb != NULL);
   if (err) {
     SET_REQ_WIN32_ERROR(req, err);
+
     return req->result;
   }
 

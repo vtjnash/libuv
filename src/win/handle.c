@@ -60,7 +60,8 @@ int uv_is_active(const uv_handle_t* handle) {
 }
 
 
-void uv_close(uv_handle_t* handle, uv_close_cb cb) {
+void uv_close(uv_handle_t* handle, uv_close_cb cb)
+UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock) {
   uv_loop_t* loop = handle->loop;
 
   if (handle->flags & UV_HANDLE_CLOSING) {

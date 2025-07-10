@@ -78,7 +78,8 @@ static int uv__tcp_set_socket(uv_loop_t* loop,
                               uv_tcp_t* handle,
                               SOCKET socket,
                               int family,
-                              int imported) {
+                              int imported)
+UV_REQUIRES_SHARED(&uv_init_guard_) {
   DWORD yes = 1;
   int non_ifs_lsp;
   int err;
@@ -147,7 +148,8 @@ static int uv__tcp_set_socket(uv_loop_t* loop,
 }
 
 
-int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* handle, unsigned int flags) {
+int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* handle, unsigned int flags)
+UV_REQUIRES_SHARED(&uv_init_guard_) {
   int domain;
 
   /* Use the lower 8 bits for the domain */
@@ -196,7 +198,8 @@ int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* handle, unsigned int flags) {
 }
 
 
-int uv_tcp_init(uv_loop_t* loop, uv_tcp_t* handle) {
+int uv_tcp_init(uv_loop_t* loop, uv_tcp_t* handle)
+UV_REQUIRES_SHARED(&uv_init_guard_) {
   return uv_tcp_init_ex(loop, handle, AF_UNSPEC);
 }
 
@@ -286,7 +289,7 @@ void uv__tcp_endgame(uv_loop_t* loop, uv_tcp_t* handle) {
 static int uv__tcp_try_bind(uv_tcp_t* handle,
                             const struct sockaddr* addr,
                             unsigned int addrlen,
-                            unsigned int flags) {
+                            unsigned int flags) UV_REQUIRES_SHARED(&uv_init_guard_) {
   DWORD err;
   int r;
 
@@ -541,7 +544,7 @@ int uv_tcp_close_reset(uv_tcp_t* handle, uv_close_cb close_cb) {
 }
 
 
-int uv__tcp_listen(uv_tcp_t* handle, int backlog, uv_connection_cb cb) {
+int uv__tcp_listen(uv_tcp_t* handle, int backlog, uv_connection_cb cb) UV_REQUIRES_SHARED(&uv_init_guard_) {
   unsigned int i, simultaneous_accepts;
   uv_tcp_accept_t* req;
   int err;
@@ -633,7 +636,7 @@ int uv__tcp_listen(uv_tcp_t* handle, int backlog, uv_connection_cb cb) {
 }
 
 
-int uv__tcp_accept(uv_tcp_t* server, uv_tcp_t* client) {
+int uv__tcp_accept(uv_tcp_t* server, uv_tcp_t* client) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int err = 0;
   int family;
 
@@ -763,7 +766,7 @@ static int uv__tcp_try_connect(uv_connect_t* req,
                               uv_tcp_t* handle,
                               const struct sockaddr* addr,
                               unsigned int addrlen,
-                              uv_connect_cb cb) {
+                              uv_connect_cb cb) UV_REQUIRES_SHARED(&uv_init_guard_) {
   uv_loop_t* loop = handle->loop;
   TCP_INITIAL_RTO_PARAMETERS retransmit_ioctl;
   const struct sockaddr* bind_addr;
@@ -1246,7 +1249,7 @@ int uv__tcp_xfer_export(uv_tcp_t* handle,
 
 int uv__tcp_xfer_import(uv_tcp_t* tcp,
                         uv__ipc_socket_xfer_type_t xfer_type,
-                        uv__ipc_socket_xfer_info_t* xfer_info) {
+                        uv__ipc_socket_xfer_info_t* xfer_info) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int err;
   SOCKET socket;
 
@@ -1355,7 +1358,7 @@ int uv_tcp_simultaneous_accepts(uv_tcp_t* handle, int enable) {
 }
 
 
-static void uv__tcp_try_cancel_reqs(uv_tcp_t* tcp) {
+static void uv__tcp_try_cancel_reqs(uv_tcp_t* tcp) UV_REQUIRES_SHARED(&uv_init_guard_) {
   SOCKET socket;
   int non_ifs_lsp;
   int reading;
@@ -1407,7 +1410,7 @@ static void uv__tcp_try_cancel_reqs(uv_tcp_t* tcp) {
 }
 
 
-void uv__tcp_close(uv_loop_t* loop, uv_tcp_t* tcp) {
+void uv__tcp_close(uv_loop_t* loop, uv_tcp_t* tcp) UV_REQUIRES_SHARED(&uv_init_guard_) {
   if (tcp->flags & UV_HANDLE_CONNECTION) {
     if (tcp->flags & UV_HANDLE_READING) {
       uv_read_stop((uv_stream_t*) tcp);
@@ -1453,7 +1456,7 @@ void uv__tcp_close(uv_loop_t* loop, uv_tcp_t* tcp) {
 }
 
 
-int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock) {
+int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock) UV_REQUIRES_SHARED(&uv_init_guard_) {
   WSAPROTOCOL_INFOW protocol_info;
   int opt_len;
   int err;
@@ -1502,7 +1505,7 @@ int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock) {
 int uv__tcp_bind(uv_tcp_t* handle,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
-                 unsigned int flags) {
+                 unsigned int flags) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int err;
 
   err = uv__tcp_try_bind(handle, addr, addrlen, flags);
@@ -1520,7 +1523,7 @@ int uv__tcp_connect(uv_connect_t* req,
                     uv_tcp_t* handle,
                     const struct sockaddr* addr,
                     unsigned int addrlen,
-                    uv_connect_cb cb) {
+                    uv_connect_cb cb) UV_REQUIRES_SHARED(&uv_init_guard_) {
   int err;
 
   err = uv__tcp_try_connect(req, handle, addr, addrlen, cb);

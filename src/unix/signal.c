@@ -40,29 +40,35 @@ typedef struct {
 RB_HEAD(uv__signal_tree_s, uv_signal_s);
 
 
-static int uv__signal_unlock(void);
+static int uv__signal_unlock(void)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
 static int uv__signal_start(uv_signal_t* handle,
                             uv_signal_cb signal_cb,
                             int signum,
-                            int oneshot);
-static void uv__signal_event(uv_loop_t* loop, uv__io_t* w, unsigned int events);
+                            int oneshot)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
+static void uv__signal_event(uv_loop_t* loop, uv__io_t* w, unsigned int events)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
 static int uv__signal_compare(uv_signal_t* w1, uv_signal_t* w2);
-static void uv__signal_stop(uv_signal_t* handle);
+static void uv__signal_stop(uv_signal_t* handle)
+UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
 static void uv__signal_unregister_handler(int signum);
 
 
-static uv_once_t uv__signal_global_init_guard = UV_ONCE_INIT;
-static struct uv__signal_tree_s uv__signal_tree =
+uv_once_t uv__signal_global_init_guard = UV_ONCE_INIT;
+static struct uv__signal_tree_s uv__signal_tree UV_GUARDED_BY(uv__signal_global_init_guard) =
     RB_INITIALIZER(uv__signal_tree);
-static int uv__signal_lock_pipefd[2] = { -1, -1 };
+static int uv__signal_lock_pipefd[2] UV_GUARDED_BY(uv__signal_global_init_guard) = { -1, -1 };
 
 RB_GENERATE_STATIC(uv__signal_tree_s,
                    uv_signal_s, tree_entry,
                    uv__signal_compare)
 
-static void uv__signal_global_reinit(void);
+static void uv__signal_global_reinit(void)
+UV_REQUIRES(&uv__signal_global_init_guard);
 
-static void uv__signal_global_init(void) {
+static void uv__signal_global_init(void)
+UV_REQUIRES(&uv__signal_global_init_guard) {
   if (uv__signal_lock_pipefd[0] == -1)
     /* pthread_atfork can register before and after handlers, one
      * for each child. This only registers one for the child. That
@@ -108,12 +114,12 @@ static void uv__signal_global_reinit(void) {
 }
 
 
-void uv__signal_global_once_init(void) UV_EXCLUDES(&uv__signal_global_init_guard) {
+void uv__signal_global_once_init(void) {
   uv_once(&uv__signal_global_init_guard, uv__signal_global_init);
 }
 
 
-static int uv__signal_lock(void) {
+static int uv__signal_lock(void) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   int r;
   char data;
 
@@ -137,7 +143,7 @@ static int uv__signal_unlock(void) {
 }
 
 
-static void uv__signal_block_and_lock(sigset_t* saved_sigmask) {
+static void uv__signal_block_and_lock(sigset_t* saved_sigmask) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   sigset_t new_mask;
 
   if (sigfillset(&new_mask))
@@ -153,7 +159,7 @@ static void uv__signal_block_and_lock(sigset_t* saved_sigmask) {
 }
 
 
-static void uv__signal_unlock_and_unblock(sigset_t* saved_sigmask) {
+static void uv__signal_unlock_and_unblock(sigset_t* saved_sigmask) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   if (uv__signal_unlock())
     abort();
 
@@ -162,7 +168,7 @@ static void uv__signal_unlock_and_unblock(sigset_t* saved_sigmask) {
 }
 
 
-static uv_signal_t* uv__signal_first_handle(int signum) {
+static uv_signal_t* uv__signal_first_handle(int signum) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   /* This function must be called with the signal lock held. */
   uv_signal_t lookup;
   uv_signal_t* handle;
@@ -180,7 +186,7 @@ static uv_signal_t* uv__signal_first_handle(int signum) {
 }
 
 
-static void uv__signal_handler(int signum) {
+static void uv__signal_handler(int signum) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   uv__signal_msg_t msg;
   uv_signal_t* handle;
   int saved_errno;
@@ -330,6 +336,7 @@ void uv__signal_loop_cleanup(uv_loop_t* loop) {
     uv__close(loop->signal_pipefd[1]);
     loop->signal_pipefd[1] = -1;
   }
+
 }
 
 
@@ -354,14 +361,14 @@ void uv__signal_close(uv_signal_t* handle) {
 }
 
 
-int uv_signal_start(uv_signal_t* handle, uv_signal_cb signal_cb, int signum) {
+int uv_signal_start(uv_signal_t* handle, uv_signal_cb signal_cb, int signum) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   return uv__signal_start(handle, signal_cb, signum, 0);
 }
 
 
 int uv_signal_start_oneshot(uv_signal_t* handle,
                             uv_signal_cb signal_cb,
-                            int signum) {
+                            int signum) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   return uv__signal_start(handle, signal_cb, signum, 1);
 }
 
@@ -527,7 +534,7 @@ static int uv__signal_compare(uv_signal_t* w1, uv_signal_t* w2) {
 }
 
 
-int uv_signal_stop(uv_signal_t* handle) {
+int uv_signal_stop(uv_signal_t* handle) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   assert(!uv__is_closing(handle));
   uv__signal_stop(handle);
   return 0;

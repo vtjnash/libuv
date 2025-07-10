@@ -398,7 +398,11 @@ int uv_udp_bind(uv_udp_t* handle,
 int uv_tcp_connect(uv_connect_t* req,
                    uv_tcp_t* handle,
                    const struct sockaddr* addr,
-                   uv_connect_cb cb) {
+                   uv_connect_cb cb)
+#ifdef _WIN32
+UV_REQUIRES_SHARED(&uv_init_guard_)
+#endif
+{
   unsigned int addrlen;
 
   if (handle->type != UV_TCP)

@@ -23,7 +23,8 @@
 #include "internal.h"
 #include "winapi.h"
 
-static void uv__register_system_resume_callback(void);
+static void uv__register_system_resume_callback(void)
+UV_REQUIRES_SHARED(&uv_init_guard_);
 
 void uv__init_detect_system_wakeup(void) {
   /* Try registering system power event callback. This is the cleanest
@@ -34,7 +35,7 @@ void uv__init_detect_system_wakeup(void) {
 
 static ULONG CALLBACK uv__system_resume_callback(PVOID Context,
                                                  ULONG Type,
-                                                 PVOID Setting) {
+                                                 PVOID Setting) UV_REQUIRES_SHARED(&uv_init_guard_) {
   if (Type == PBT_APMRESUMESUSPEND || Type == PBT_APMRESUMEAUTOMATIC)
     uv__wake_all_loops();
 

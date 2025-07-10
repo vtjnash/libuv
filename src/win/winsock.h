@@ -139,6 +139,7 @@ typedef struct _AFD_RECV_INFO {
     _AFD_CONTROL_CODE(AFD_POLL, METHOD_BUFFERED)
 
 int uv__convert_to_localhost_if_unspecified(const struct sockaddr* addr,
-                                            struct sockaddr_storage* storage);
+                                            struct sockaddr_storage* storage)
+UV_REQUIRES_SHARED(&uv_init_guard_);
 
 #endif /* UV_WIN_WINSOCK_H_ */

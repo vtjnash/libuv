@@ -25,13 +25,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-static uv_mutex_t process_title_mutex;
 static uv_once_t process_title_mutex_once = UV_ONCE_INIT;
-static char* process_title = NULL;
-static void* args_mem = NULL;
+static uv_mutex_t process_title_mutex UV_GUARDED_BY(&process_title_mutex_once);
+static char* process_title UV_GUARDED_BY(&process_title_mutex) = NULL;
+static void* args_mem UV_GUARDED_BY(&process_title_mutex) = NULL;
 
 
-static void init_process_title_mutex_once(void) {
+static void init_process_title_mutex_once(void) UV_REQUIRES(&process_title_mutex_once) {
   uv_mutex_init(&process_title_mutex);
 }
 
@@ -98,6 +98,7 @@ int uv_set_process_title(const char* title) {
 
   uv_mutex_unlock(&process_title_mutex);
 
+
   return 0;
 }
 
@@ -119,12 +120,14 @@ int uv_get_process_title(char* buffer, size_t size) {
 
   if (size <= len) {
     uv_mutex_unlock(&process_title_mutex);
+
     return UV_ENOBUFS;
   }
 
   strcpy(buffer, process_title);
 
   uv_mutex_unlock(&process_title_mutex);
+
 
   return 0;
 }
