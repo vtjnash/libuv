@@ -34,19 +34,19 @@
 #define FD_DIFF 9
 
 
-void assert_nonexistent(uv_os_fd_t fd) {
+void assert_nonexistent(uv_os_fd_t fd) UV_EXCLUDES(&uv__fd_hash_mutex) {
   struct uv__fd_info_s info = { 0 };
   ASSERT(!uv__fd_hash_get(fd, &info));
   ASSERT(!uv__fd_hash_remove(fd, &info));
 }
 
-void assert_existent(uv_os_fd_t fd) {
+void assert_existent(uv_os_fd_t fd) UV_EXCLUDES(&uv__fd_hash_mutex) {
   struct uv__fd_info_s info = { 0 };
   ASSERT(uv__fd_hash_get(fd, &info));
   ASSERT_EQ(info.flags, (intptr_t) fd + FD_DIFF);
 }
 
-void assert_insertion(uv_os_fd_t fd) {
+void assert_insertion(uv_os_fd_t fd) UV_EXCLUDES(&uv__fd_hash_mutex) {
   struct uv__fd_info_s info = { 0 };
   assert_nonexistent(fd);
   info.flags = (intptr_t) fd + FD_DIFF;
@@ -54,7 +54,7 @@ void assert_insertion(uv_os_fd_t fd) {
   assert_existent(fd);
 }
 
-void assert_removal(uv_os_fd_t fd) {
+void assert_removal(uv_os_fd_t fd) UV_EXCLUDES(&uv__fd_hash_mutex) {
   struct uv__fd_info_s info = { 0 };
   assert_existent(fd);
   uv__fd_hash_remove(fd, &info);
@@ -80,7 +80,7 @@ void assert_removal(uv_os_fd_t fd) {
   } while (0)
 
 
-TEST_IMPL(fs_fd_hash) {
+TEST_IMPL(fs_fd_hash) UV_EXCLUDES(&uv__fd_hash_mutex) {
   uintptr_t fd;
 
   uv__fd_hash_init();

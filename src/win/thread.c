@@ -48,7 +48,7 @@ static BOOL WINAPI uv__once_inner(INIT_ONCE *once, void* param, void** context) 
   return TRUE;
 }
 
-void uv_once(uv_once_t* guard, uv__once_cb callback) {
+void uv_once(uv_once_t* guard, uv__once_cb callback) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv__once_data_t data = { .callback = callback };
   InitOnceExecuteOnce(&guard->init_once, uv__once_inner, (void*) &data, NULL);
 }
@@ -74,7 +74,7 @@ struct thread_ctx {
 };
 
 
-static UINT __stdcall uv__thread_start(void* arg) {
+static UINT __stdcall uv__thread_start(void* arg) UV_EXCLUDES(&uv__current_thread_init_guard) {
   struct thread_ctx *ctx_p;
   struct thread_ctx ctx;
 
@@ -250,7 +250,7 @@ int uv_thread_getcpu(void) {
 }
 
 
-uv_thread_t uv_thread_self(void) {
+uv_thread_t uv_thread_self(void) UV_EXCLUDES(&uv__current_thread_init_guard) {
   uv_thread_t key;
   uv_once(&uv__current_thread_init_guard, uv__init_current_thread_key);
   key = uv_key_get(&uv__current_thread_key);
@@ -351,7 +351,7 @@ int uv_thread_getname(uv_thread_t* tid, char* name, size_t size) {
 
 
 int uv_mutex_init(uv_mutex_t* mutex) {
-  InitializeCriticalSection(mutex);
+  InitializeCriticalSection(&mutex->cs);
   return 0;
 }
 
@@ -362,30 +362,30 @@ int uv_mutex_init_recursive(uv_mutex_t* mutex) {
 
 
 void uv_mutex_destroy(uv_mutex_t* mutex) {
-  DeleteCriticalSection(mutex);
+  DeleteCriticalSection(&mutex->cs);
 }
 
 
-void uv_mutex_lock(uv_mutex_t* mutex) {
-  EnterCriticalSection(mutex);
+void uv_mutex_lock(uv_mutex_t* mutex) UV_NO_THREAD_SAFETY_ANALYSIS {
+  EnterCriticalSection(&mutex->cs);
 }
 
 
-int uv_mutex_trylock(uv_mutex_t* mutex) {
-  if (TryEnterCriticalSection(mutex))
+int uv_mutex_trylock(uv_mutex_t* mutex) UV_NO_THREAD_SAFETY_ANALYSIS {
+  if (TryEnterCriticalSection(&mutex->cs))
     return 0;
   else
     return UV_EBUSY;
 }
 
 
-void uv_mutex_unlock(uv_mutex_t* mutex) {
-  LeaveCriticalSection(mutex);
+void uv_mutex_unlock(uv_mutex_t* mutex) UV_NO_THREAD_SAFETY_ANALYSIS {
+  LeaveCriticalSection(&mutex->cs);
 }
 
 int uv_rwlock_init(uv_rwlock_t* rwlock) {
   memset(rwlock, 0, sizeof(*rwlock));
-  InitializeSRWLock(rwlock);
+  InitializeSRWLock(&rwlock->rw);
   return 0;
 }
 
@@ -396,39 +396,39 @@ void uv_rwlock_destroy(uv_rwlock_t* rwlock) {
 }
 
 
-void uv_rwlock_rdlock(uv_rwlock_t* rwlock) {
-  AcquireSRWLockShared(rwlock);
+void uv_rwlock_rdlock(uv_rwlock_t* rwlock) UV_NO_THREAD_SAFETY_ANALYSIS {
+  AcquireSRWLockShared(&rwlock->rw);
 }
 
 
-int uv_rwlock_tryrdlock(uv_rwlock_t* rwlock) {
-  if (!TryAcquireSRWLockShared(rwlock))
+int uv_rwlock_tryrdlock(uv_rwlock_t* rwlock) UV_NO_THREAD_SAFETY_ANALYSIS {
+  if (!TryAcquireSRWLockShared(&rwlock->rw))
     return UV_EBUSY;
 
   return 0;
 }
 
 
-void uv_rwlock_rdunlock(uv_rwlock_t* rwlock) {
-  ReleaseSRWLockShared(rwlock);
+void uv_rwlock_rdunlock(uv_rwlock_t* rwlock) UV_NO_THREAD_SAFETY_ANALYSIS {
+  ReleaseSRWLockShared(&rwlock->rw);
 }
 
 
-void uv_rwlock_wrlock(uv_rwlock_t* rwlock) {
-  AcquireSRWLockExclusive(rwlock);
+void uv_rwlock_wrlock(uv_rwlock_t* rwlock) UV_NO_THREAD_SAFETY_ANALYSIS {
+  AcquireSRWLockExclusive(&rwlock->rw);
 }
 
 
-int uv_rwlock_trywrlock(uv_rwlock_t* rwlock) {
-  if (!TryAcquireSRWLockExclusive(rwlock))
+int uv_rwlock_trywrlock(uv_rwlock_t* rwlock) UV_NO_THREAD_SAFETY_ANALYSIS {
+  if (!TryAcquireSRWLockExclusive(&rwlock->rw))
     return UV_EBUSY;
 
   return 0;
 }
 
 
-void uv_rwlock_wrunlock(uv_rwlock_t* rwlock) {
-  ReleaseSRWLockExclusive(rwlock);
+void uv_rwlock_wrunlock(uv_rwlock_t* rwlock) UV_NO_THREAD_SAFETY_ANALYSIS {
+  ReleaseSRWLockExclusive(&rwlock->rw);
 }
 
 
@@ -496,13 +496,13 @@ void uv_cond_broadcast(uv_cond_t* cond) {
 
 
 void uv_cond_wait(uv_cond_t* cond, uv_mutex_t* mutex) {
-  if (!SleepConditionVariableCS(cond, mutex, INFINITE))
+  if (!SleepConditionVariableCS(cond, &mutex->cs, INFINITE))
     abort();
 }
 
 
 int uv_cond_timedwait(uv_cond_t* cond, uv_mutex_t* mutex, uint64_t timeout) {
-  if (SleepConditionVariableCS(cond, mutex, (DWORD)(timeout / 1e6)))
+  if (SleepConditionVariableCS(cond, &mutex->cs, (DWORD)(timeout / 1e6)))
     return 0;
   if (GetLastError() != ERROR_TIMEOUT)
     abort();

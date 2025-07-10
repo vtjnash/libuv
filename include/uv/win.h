@@ -143,11 +143,15 @@ typedef HANDLE uv_thread_t;
 
 typedef HANDLE uv_sem_t;
 
-typedef CRITICAL_SECTION uv_mutex_t;
+typedef struct UV_CAPABILITY("uv_mutex") uv_mutex_s {
+  CRITICAL_SECTION cs;
+} uv_mutex_t;
 
 typedef CONDITION_VARIABLE uv_cond_t;
 
-typedef SRWLOCK uv_rwlock_t;
+typedef struct UV_CAPABILITY("uv_rwlock") uv_rwlock_s {
+  SRWLOCK rw;
+} uv_rwlock_t;
 
 typedef struct {
   unsigned threshold;
@@ -164,7 +168,7 @@ typedef struct {
 
 #define UV_ONCE_INIT { INIT_ONCE_STATIC_INIT }
 
-typedef struct uv_once_s {
+typedef struct UV_CAPABILITY("uv_once") uv_once_s {
   INIT_ONCE init_once;
 } uv_once_t;
 

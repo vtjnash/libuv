@@ -119,7 +119,7 @@ INLINE static void uv__fd_hash_init(void) {
       FIND_IN_GROUP_PTR(UV__FD_HASH_GROUP_SIZE);                             \
   } while (0)
 
-INLINE static int uv__fd_hash_get(uv_os_fd_t fd, struct uv__fd_info_s* info) {
+INLINE static int uv__fd_hash_get(uv_os_fd_t fd, struct uv__fd_info_s* info) UV_EXCLUDES(&uv__fd_hash_mutex) {
   FIND_COMMON_VARIABLES
 
   uv_mutex_lock(&uv__fd_hash_mutex);
@@ -134,7 +134,7 @@ INLINE static int uv__fd_hash_get(uv_os_fd_t fd, struct uv__fd_info_s* info) {
   return entry_ptr != NULL;
 }
 
-INLINE static void uv__fd_hash_add(uv_os_fd_t fd, struct uv__fd_info_s* info) {
+INLINE static void uv__fd_hash_add(uv_os_fd_t fd, struct uv__fd_info_s* info) UV_EXCLUDES(&uv__fd_hash_mutex) {
   FIND_COMMON_VARIABLES
 
   uv_mutex_lock(&uv__fd_hash_mutex);
@@ -164,7 +164,7 @@ INLINE static void uv__fd_hash_add(uv_os_fd_t fd, struct uv__fd_info_s* info) {
   uv_mutex_unlock(&uv__fd_hash_mutex);
 }
 
-INLINE static int uv__fd_hash_remove(uv_os_fd_t fd, struct uv__fd_info_s* info) {
+INLINE static int uv__fd_hash_remove(uv_os_fd_t fd, struct uv__fd_info_s* info) UV_EXCLUDES(&uv__fd_hash_mutex) {
   FIND_COMMON_VARIABLES
 
   uv_mutex_lock(&uv__fd_hash_mutex);
