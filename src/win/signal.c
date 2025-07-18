@@ -30,8 +30,8 @@
 
 RB_HEAD(uv_signal_tree_s, uv_signal_s);
 
-uv_mutex_t uv__signal_lock UV_GUARDED_BY(uv_init_guard_);
-static struct uv_signal_tree_s uv__signal_tree UV_GUARDED_BY(uv__signal_lock) = RB_INITIALIZER(uv__signal_tree);
+uv_mutex_t uv__signal_lock UV_GUARDED_BY(&uv_init_guard_);
+static struct uv_signal_tree_s uv__signal_tree UV_GUARDED_BY(&uv__signal_lock) = RB_INITIALIZER(uv__signal_tree);
 
 static BOOL WINAPI uv__signal_control_handler(DWORD type)
 UV_REQUIRES_SHARED(&uv_init_guard_) UV_EXCLUDES(&uv__signal_lock);

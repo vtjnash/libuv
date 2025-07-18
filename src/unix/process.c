@@ -451,8 +451,8 @@ typedef struct uv__posix_spawn_fncs_tag {
 
 
 static uv_once_t posix_spawn_init_once = UV_ONCE_INIT;
-static uv__posix_spawn_fncs_t posix_spawn_fncs UV_GUARDED_BY(posix_spawn_init_once);
-static int posix_spawn_can_use_setsid UV_GUARDED_BY(posix_spawn_init_once);
+static uv__posix_spawn_fncs_t posix_spawn_fncs UV_GUARDED_BY(&posix_spawn_init_once);
+static int posix_spawn_can_use_setsid UV_GUARDED_BY(&posix_spawn_init_once);
 
 
 static void uv__spawn_init_posix_spawn_fncs(void) UV_REQUIRES(&posix_spawn_init_once) {

@@ -249,37 +249,37 @@ int uv__close_nocancel(int fd);
 int uv__socket(int domain, int type, int protocol);
 int uv__sock_reuseport(int fd);
 ssize_t uv__recvmsg(int fd, struct msghdr *msg, int flags);
-void uv__make_close_pending(uv_handle_t* handle);
+void uv__make_close_pending(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 int uv__getiovmax(void);
 
 void uv__io_init(uv__io_t* w, uv__io_cb cb, int fd);
-void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events);
-void uv__io_stop(uv_loop_t* loop, uv__io_t* w, unsigned int events);
-void uv__io_close(uv_loop_t* loop, uv__io_t* w);
-void uv__io_feed(uv_loop_t* loop, uv__io_t* w);
+void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop);
+void uv__io_stop(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop);
+void uv__io_close(uv_loop_t* loop, uv__io_t* w) UV_REQUIRES_LOOP(loop);
+void uv__io_feed(uv_loop_t* loop, uv__io_t* w) UV_REQUIRES_LOOP(loop);
 int uv__io_active(const uv__io_t* w, unsigned int events);
-int uv__io_check_fd(uv_loop_t* loop, int fd);
-void uv__io_poll(uv_loop_t* loop, int timeout); /* in milliseconds or -1 */
-int uv__io_fork(uv_loop_t* loop);
-int uv__fd_exists(uv_loop_t* loop, int fd);
+int uv__io_check_fd(uv_loop_t* loop, int fd) UV_REQUIRES_LOOP(loop);
+void uv__io_poll(uv_loop_t* loop, int timeout) UV_REQUIRES_LOOP(loop); /* in milliseconds or -1 */
+int uv__io_fork(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+int uv__fd_exists(uv_loop_t* loop, int fd) UV_REQUIRES_LOOP(loop);
 
 /* async */
-void uv__async_stop(uv_loop_t* loop);
-int uv__async_fork(uv_loop_t* loop);
+void uv__async_stop(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+int uv__async_fork(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 
 /* loop */
-void uv__run_idle(uv_loop_t* loop);
-void uv__run_check(uv_loop_t* loop);
-void uv__run_prepare(uv_loop_t* loop);
+void uv__run_idle(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+void uv__run_check(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+void uv__run_prepare(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 /* stream */
 void uv__stream_init(uv_loop_t* loop, uv_stream_t* stream,
-    uv_handle_type type);
-int uv__stream_open(uv_stream_t*, int fd, int flags);
-void uv__stream_destroy(uv_stream_t* stream);
+    uv_handle_type type) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(stream);
+int uv__stream_open(uv_stream_t* stream, int fd, int flags) UV_REQUIRES_HANDLE_LOOP(stream);
+void uv__stream_destroy(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 #if defined(__APPLE__)
-int uv__stream_try_select(uv_stream_t* stream, int* fd);
+int uv__stream_try_select(uv_stream_t* stream, int* fd) UV_REQUIRES_HANDLE_LOOP(stream);
 #endif /* defined(__APPLE__) */
 void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events);
 int uv__accept(int sockfd);
@@ -288,52 +288,52 @@ int uv__open_cloexec(const char* path, int flags);
 int uv__slurp(const char* filename, char* buf, size_t len);
 
 /* tcp */
-int uv__tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb);
+int uv__tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb) UV_REQUIRES_HANDLE_LOOP(tcp);
 int uv__tcp_nodelay(int fd, int on);
 int uv__tcp_keepalive(int fd, int on, unsigned int delay);
 
 /* tty */
-void uv__tty_close(uv_tty_t* handle);
+void uv__tty_close(uv_tty_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* pipe */
-int uv__pipe_listen(uv_pipe_t* handle, int backlog, uv_connection_cb cb);
+int uv__pipe_listen(uv_pipe_t* handle, int backlog, uv_connection_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* signal */
 extern uv_once_t uv__signal_global_init_guard;
 void uv__signal_cleanup(void) UV_REQUIRES(&uv__signal_global_init_guard);
-void uv__signal_close(uv_signal_t* handle)
+void uv__signal_close(uv_signal_t* handle) UV_REQUIRES_HANDLE_LOOP(handle)
 UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
 void uv__signal_global_once_init(void)
 UV_EXCLUDES(&uv__signal_global_init_guard) UV_ACQUIRE_SHARED(&uv__signal_global_init_guard);
-void uv__signal_loop_cleanup(uv_loop_t* loop)
+void uv__signal_loop_cleanup(uv_loop_t* loop) UV_REQUIRES_LOOP(loop)
 UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
-int uv__signal_loop_fork(uv_loop_t* loop)
+int uv__signal_loop_fork(uv_loop_t* loop) UV_REQUIRES_LOOP(loop)
 UV_REQUIRES_SHARED(&uv__signal_global_init_guard);
 
 /* platform specific */
 uint64_t uv__hrtime(uv_clocktype_t type);
-int uv__kqueue_init(uv_loop_t* loop);
-int uv__platform_loop_init(uv_loop_t* loop);
-void uv__platform_loop_delete(uv_loop_t* loop);
-void uv__platform_invalidate_fd(uv_loop_t* loop, int fd);
-int uv__process_init(uv_loop_t* loop);
+int uv__kqueue_init(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+int uv__platform_loop_init(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+void uv__platform_loop_delete(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) UV_REQUIRES_LOOP(loop);
+int uv__process_init(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 /* various */
-void uv__async_close(uv_async_t* handle);
-void uv__fs_event_close(uv_fs_event_t* handle);
-void uv__pipe_close(uv_pipe_t* handle);
-void uv__poll_close(uv_poll_t* handle);
-void uv__process_close(uv_process_t* handle);
-void uv__stream_close(uv_stream_t* handle);
-void uv__tcp_close(uv_tcp_t* handle);
+void uv__async_close(uv_async_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__fs_event_close(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__pipe_close(uv_pipe_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__poll_close(uv_poll_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__process_close(uv_process_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__stream_close(uv_stream_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__tcp_close(uv_tcp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 int uv__thread_setname(const char* name);
 int uv__thread_getname(uv_thread_t* tid, char* name, size_t size);
 size_t uv__thread_stack_size(void);
-void uv__udp_close(uv_udp_t* handle);
-void uv__udp_finish_close(uv_udp_t* handle);
+void uv__udp_close(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__udp_finish_close(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 FILE* uv__open_file(const char* path);
 int uv__search_path(const char* prog, char* buf, size_t* buflen);
-void uv__wait_children(uv_loop_t* loop);
+void uv__wait_children(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 /* random */
 int uv__random_devurandom(void* buf, size_t buflen);
@@ -377,7 +377,7 @@ int uv__iou_fs_unlink(uv_loop_t* loop, uv_fs_t* req);
 #endif
 
 #if defined(__APPLE__)
-int uv___stream_fd(const uv_stream_t* handle);
+int uv___stream_fd(const uv_stream_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 #define uv__stream_fd(handle) (uv___stream_fd((const uv_stream_t*) (handle)))
 #else
 #define uv__stream_fd(handle) ((handle)->io_watcher.fd)
@@ -387,9 +387,9 @@ int uv__make_pipe(int fds[2], int flags);
 
 #if defined(__APPLE__)
 
-int uv__fsevents_init(uv_fs_event_t* handle);
-int uv__fsevents_close(uv_fs_event_t* handle);
-void uv__fsevents_loop_delete(uv_loop_t* loop);
+int uv__fsevents_init(uv_fs_event_t* handle) UV_EXCLUDES(&handle->cf_mutex);
+int uv__fsevents_close(uv_fs_event_t* handle) UV_EXCLUDES(&handle->cf_mutex);
+void uv__fsevents_loop_delete(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_EXCLUDES(&loop->cf_mutex);
 
 #endif /* defined(__APPLE__) */
 
@@ -440,7 +440,7 @@ UV_UNUSED(static int uv__stat(const char* path, struct stat* s)) {
 }
 
 #if defined(__linux__)
-void uv__fs_post(uv_loop_t* loop, uv_fs_t* req);
+void uv__fs_post(uv_loop_t* loop, uv_fs_t* req) UV_REQUIRES_LOOP(loop);
 ssize_t
 uv__fs_copy_file_range(int fd_in,
                        off_t* off_in,
@@ -463,7 +463,7 @@ typedef int (*uv__peersockfunc)(int, struct sockaddr*, socklen_t*);
 int uv__getsockpeername(const uv_handle_t* handle,
                         uv__peersockfunc func,
                         struct sockaddr* name,
-                        int* namelen);
+                        int* namelen) UV_REQUIRES_HANDLE_LOOP(handle);
 
 #if defined(__sun)
 #if !defined(_POSIX_VERSION) || _POSIX_VERSION < 200809L

@@ -38,7 +38,7 @@ static void idle_cb(uv_idle_t* handle) {
     uv_idle_stop(handle);
 }
 
-static void idle_alive_cb(uv_idle_t* handle) {
+static void idle_alive_cb(uv_idle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   int ticks = 0;
 
   while (++ticks < NUM_TICKS2) {
@@ -57,7 +57,7 @@ static void idle2_cb(uv_idle_t* handle) {
 }
 
 
-static void timer_cb(uv_timer_t* handle) {
+static void timer_cb(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv_idle_stop(&idle_handle);
   uv_timer_stop(&timer_handle);
 }

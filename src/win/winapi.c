@@ -26,27 +26,27 @@
 
 
 /* Ntdll function pointers */
-sRtlGetVersion pRtlGetVersion UV_GUARDED_BY(uv_init_guard_);
-sRtlNtStatusToDosError pRtlNtStatusToDosError UV_GUARDED_BY(uv_init_guard_);
-sNtDeviceIoControlFile pNtDeviceIoControlFile UV_GUARDED_BY(uv_init_guard_);
-sNtQueryInformationFile pNtQueryInformationFile UV_GUARDED_BY(uv_init_guard_);
-sNtSetInformationFile pNtSetInformationFile UV_GUARDED_BY(uv_init_guard_);
-sNtQueryVolumeInformationFile pNtQueryVolumeInformationFile UV_GUARDED_BY(uv_init_guard_);
-sNtQueryDirectoryFile pNtQueryDirectoryFile UV_GUARDED_BY(uv_init_guard_);
-sNtQuerySystemInformation pNtQuerySystemInformation UV_GUARDED_BY(uv_init_guard_);
-sNtQueryInformationProcess pNtQueryInformationProcess UV_GUARDED_BY(uv_init_guard_);
+sRtlGetVersion pRtlGetVersion UV_GUARDED_BY(&uv_init_guard_);
+sRtlNtStatusToDosError pRtlNtStatusToDosError UV_GUARDED_BY(&uv_init_guard_);
+sNtDeviceIoControlFile pNtDeviceIoControlFile UV_GUARDED_BY(&uv_init_guard_);
+sNtQueryInformationFile pNtQueryInformationFile UV_GUARDED_BY(&uv_init_guard_);
+sNtSetInformationFile pNtSetInformationFile UV_GUARDED_BY(&uv_init_guard_);
+sNtQueryVolumeInformationFile pNtQueryVolumeInformationFile UV_GUARDED_BY(&uv_init_guard_);
+sNtQueryDirectoryFile pNtQueryDirectoryFile UV_GUARDED_BY(&uv_init_guard_);
+sNtQuerySystemInformation pNtQuerySystemInformation UV_GUARDED_BY(&uv_init_guard_);
+sNtQueryInformationProcess pNtQueryInformationProcess UV_GUARDED_BY(&uv_init_guard_);
 
 /* Powrprof.dll function pointer */
-sPowerRegisterSuspendResumeNotification pPowerRegisterSuspendResumeNotification UV_GUARDED_BY(uv_init_guard_);
+sPowerRegisterSuspendResumeNotification pPowerRegisterSuspendResumeNotification UV_GUARDED_BY(&uv_init_guard_);
 
 /* User32.dll function pointer */
-sSetWinEventHook pSetWinEventHook UV_GUARDED_BY(uv_init_guard_);
+sSetWinEventHook pSetWinEventHook UV_GUARDED_BY(&uv_init_guard_);
 
 /* ws2_32.dll function pointer */
-uv_sGetHostNameW pGetHostNameW UV_GUARDED_BY(uv_init_guard_);
+uv_sGetHostNameW pGetHostNameW UV_GUARDED_BY(&uv_init_guard_);
 
 /* api-ms-win-core-file-l2-1-4.dll function pointer */
-sGetFileInformationByName pGetFileInformationByName UV_GUARDED_BY(uv_init_guard_);
+sGetFileInformationByName pGetFileInformationByName UV_GUARDED_BY(&uv_init_guard_);
 
 void uv__winapi_init(void) {
   HMODULE ntdll_module;

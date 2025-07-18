@@ -28,7 +28,7 @@
 typedef int (*uv__getentropy_cb)(void *, size_t);
 
 static uv_once_t once = UV_ONCE_INIT;
-static uv__getentropy_cb uv__getentropy UV_GUARDED_BY(once);
+static uv__getentropy_cb uv__getentropy UV_GUARDED_BY(&once);
 
 
 static void uv__random_getentropy_init(void) UV_REQUIRES(&once) {

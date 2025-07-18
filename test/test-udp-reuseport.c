@@ -125,7 +125,7 @@ static void on_recv(uv_udp_t* handle,
                     ssize_t nr,
                     const uv_buf_t* buf,
                     const struct sockaddr* addr,
-                    unsigned flags) {
+                    unsigned flags) UV_REQUIRES_HANDLE_LOOP(handle) {
   ASSERT_OK(flags);
   ASSERT(handle == &thread_handle1 || handle == &thread_handle2);
 
@@ -153,7 +153,7 @@ static void on_recv(uv_udp_t* handle,
   uv_mutex_unlock(&mutex);
 }
 
-static void on_send(uv_udp_send_t* req, int status) {
+static void on_send(uv_udp_send_t* req, int status) UV_REQUIRES_HANDLE_LOOP(req->handle) {
   ASSERT_OK(status);
   ASSERT_PTR_EQ(req->handle->loop, main_loop);
 

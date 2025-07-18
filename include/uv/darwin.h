@@ -40,7 +40,7 @@
   void* cf_state;                                                             \
   uv_mutex_t cf_mutex;                                                        \
   uv_sem_t cf_sem;                                                            \
-  struct uv__queue cf_signals;                                                \
+  struct uv__queue cf_signals UV_GUARDED_BY(&cf_mutex);                       \
 
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
   uv__io_t event_watcher;                                                     \
@@ -48,10 +48,10 @@
   int realpath_len;                                                           \
   int cf_flags;                                                               \
   uv_async_t* cf_cb;                                                          \
-  struct uv__queue cf_events;                                                 \
-  struct uv__queue cf_member;                                                 \
-  int cf_error;                                                               \
   uv_mutex_t cf_mutex;                                                        \
+  struct uv__queue cf_events UV_GUARDED_BY(&cf_mutex);                        \
+  struct uv__queue cf_member;                                                 \
+  int cf_error UV_GUARDED_BY(&cf_mutex);                                      \
 
 #define UV_STREAM_PRIVATE_PLATFORM_FIELDS                                     \
   void* select;                                                               \

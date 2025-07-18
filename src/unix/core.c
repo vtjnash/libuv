@@ -293,7 +293,7 @@ int uv__getiovmax(void) {
 }
 
 
-static void uv__finish_close(uv_handle_t* handle) {
+static void uv__finish_close(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv_signal_t* sh;
 
   /* Note: while the handle is in the UV_HANDLE_CLOSING state now, it's still

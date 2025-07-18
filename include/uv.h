@@ -142,6 +142,23 @@ extern "C" {
 #define UV_NO_THREAD_SAFETY_ANALYSIS \
   UV__THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
 
+/* Helper macros for loop capability annotations */
+#define UV_REQUIRES_LOOP(loop) UV_REQUIRES((loop)->owner_thread)
+#define UV_REQUIRES_HANDLE_LOOP(handle) UV_REQUIRES(handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread,\
+    ((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread,\
+    ((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
+#define UV_EXCLUDES_HANDLE_LOOP(handle) UV_EXCLUDES(handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread)\
+    UV_EXCLUDES(((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread)\
+    UV_EXCLUDES(((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
+#define UV_ACQUIRE_HANDLE_LOOP_ANY(handle) UV_TRY_ACQUIRE(0, handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread,\
+    ((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread,\
+    ((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
+#define UV_RELEASE_HANDLE_LOOP_ANY(handle) UV_RELEASE(handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread,\
+    ((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread,\
+    ((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
+/* For FS operations that can be sync (loop=NULL) or async (loop!=NULL) */
+#define UV_REQUIRES_LOOP_IF_NOT_NULL(loop) UV_NO_THREAD_SAFETY_ANALYSIS
+
 /* Internal type, do not use. */
 struct uv__queue {
   struct uv__queue* next;
@@ -358,55 +375,6 @@ typedef enum {
   UV_RUN_NOWAIT
 } uv_run_mode;
 
-
-UV_EXTERN unsigned int uv_version(void);
-UV_EXTERN const char* uv_version_string(void);
-
-typedef void* (*uv_malloc_func)(size_t size);
-typedef void* (*uv_realloc_func)(void* ptr, size_t size);
-typedef void* (*uv_calloc_func)(size_t count, size_t size);
-typedef void (*uv_free_func)(void* ptr);
-
-UV_EXTERN void uv_library_shutdown(void);
-
-UV_EXTERN int uv_replace_allocator(uv_malloc_func malloc_func,
-                                   uv_realloc_func realloc_func,
-                                   uv_calloc_func calloc_func,
-                                   uv_free_func free_func);
-
-UV_EXTERN uv_loop_t* uv_default_loop(void);
-UV_EXTERN int uv_loop_init(uv_loop_t* loop);
-UV_EXTERN int uv_loop_close(uv_loop_t* loop);
-/*
- * NOTE:
- *  This function is DEPRECATED, users should
- *  allocate the loop manually and use uv_loop_init instead.
- */
-UV_EXTERN uv_loop_t* uv_loop_new(void);
-/*
- * NOTE:
- *  This function is DEPRECATED. Users should use
- *  uv_loop_close and free the memory manually instead.
- */
-UV_EXTERN void uv_loop_delete(uv_loop_t*);
-UV_EXTERN size_t uv_loop_size(void);
-UV_EXTERN int uv_loop_alive(const uv_loop_t* loop);
-UV_EXTERN int uv_loop_configure(uv_loop_t* loop, uv_loop_option option, ...);
-UV_EXTERN int uv_loop_fork(uv_loop_t* loop);
-
-UV_EXTERN int uv_run(uv_loop_t*, uv_run_mode mode);
-UV_EXTERN void uv_stop(uv_loop_t*);
-
-UV_EXTERN void uv_ref(uv_handle_t*);
-UV_EXTERN void uv_unref(uv_handle_t*);
-UV_EXTERN int uv_has_ref(const uv_handle_t*);
-
-UV_EXTERN void uv_update_time(uv_loop_t*);
-UV_EXTERN uint64_t uv_now(const uv_loop_t*);
-
-UV_EXTERN uv_os_fd_t uv_backend_fd(const uv_loop_t*);
-UV_EXTERN int uv_backend_timeout(const uv_loop_t*);
-
 typedef void (*uv_alloc_cb)(uv_handle_t* handle,
                             size_t suggested_size,
                             uv_buf_t* buf);
@@ -440,6 +408,20 @@ typedef void (*uv_random_cb)(uv_random_t* req,
                              int status,
                              void* buf,
                              size_t buflen);
+typedef void (*uv_udp_send_cb)(uv_udp_send_t* req, int status);
+typedef void (*uv_udp_recv_cb)(uv_udp_t* handle,
+                               ssize_t nread,
+                               const uv_buf_t* buf,
+                               const struct sockaddr* addr,
+                               unsigned flags);
+typedef void (*uv_fs_event_cb)(uv_fs_event_t* handle,
+                               const char* filename,
+                               int events,
+                               int status);
+
+typedef void (*uv_signal_cb)(uv_signal_t* handle, int signum);
+
+typedef void (*uv_thread_cb)(void* arg);
 
 typedef enum {
   UV_CLOCK_MONOTONIC,
@@ -476,18 +458,230 @@ typedef struct {
 } uv_stat_t;
 
 
-typedef void (*uv_fs_event_cb)(uv_fs_event_t* handle,
-                               const char* filename,
-                               int events,
-                               int status);
 
-typedef void (*uv_fs_poll_cb)(uv_fs_poll_t* handle,
-                              int status,
-                              const uv_stat_t* prev,
-                              const uv_stat_t* curr);
+#define UV_HANDLE_FIELDS                                                      \
+  /* public */                                                                \
+  void* data;                                                                 \
+  /* read-only */                                                             \
+  uv_loop_t* loop;                                                            \
+  uv_handle_type type;                                                        \
+  /* private */                                                               \
+  uv_close_cb close_cb;                                                       \
+  struct uv__queue handle_queue;                                              \
+  UV_HANDLE_PRIVATE_FIELDS                                                    \
 
-typedef void (*uv_signal_cb)(uv_signal_t* handle, int signum);
+/* The abstract base class of all handles. */
+struct uv_handle_s {
+  UV_HANDLE_FIELDS
+};
 
+struct uv_async_s {
+  UV_HANDLE_FIELDS
+  UV_ASYNC_PRIVATE_FIELDS
+};
+
+#define UV_STREAM_FIELDS                                                      \
+  /* number of bytes queued for writing */                                    \
+  size_t write_queue_size;                                                    \
+  uv_alloc_cb alloc_cb;                                                       \
+  uv_read_cb read_cb;                                                         \
+  /* private */                                                               \
+  UV_STREAM_PRIVATE_FIELDS
+
+/*
+ * uv_stream_t is a subclass of uv_handle_t.
+ *
+ * uv_stream is an abstract class.
+ *
+ * uv_stream_t is the parent class of uv_tcp_t, uv_pipe_t and uv_tty_t.
+ */
+struct uv_stream_s {
+  UV_HANDLE_FIELDS
+  UV_STREAM_FIELDS
+};
+
+
+/*
+ * uv_tcp_t is a subclass of uv_stream_t.
+ *
+ * Represents a TCP stream or TCP server.
+ */
+struct uv_tcp_s {
+  UV_HANDLE_FIELDS
+  UV_STREAM_FIELDS
+  UV_TCP_PRIVATE_FIELDS
+};
+
+
+/* uv_udp_t is a subclass of uv_handle_t. */
+struct uv_udp_s {
+  UV_HANDLE_FIELDS
+  /* read-only */
+  /*
+   * Number of bytes queued for sending. This field strictly shows how much
+   * information is currently queued.
+   */
+  size_t send_queue_size;
+  /*
+   * Number of send requests currently in the queue awaiting to be processed.
+   */
+  size_t send_queue_count;
+  UV_UDP_PRIVATE_FIELDS
+};
+
+
+/*
+ * uv_tty_t is a subclass of uv_stream_t.
+ *
+ * Representing a stream for the console.
+ */
+struct uv_tty_s {
+  UV_HANDLE_FIELDS
+  UV_STREAM_FIELDS
+  UV_TTY_PRIVATE_FIELDS
+};
+
+
+/*
+ * uv_pipe_t is a subclass of uv_stream_t.
+ *
+ * Representing a pipe stream or pipe server. On Windows this is a Named
+ * Pipe. On Unix this is a Unix domain socket.
+ */
+struct uv_pipe_s {
+  UV_HANDLE_FIELDS
+  UV_STREAM_FIELDS
+  int ipc; /* non-zero if this pipe is used for passing handles */
+  UV_PIPE_PRIVATE_FIELDS
+};
+
+struct uv_poll_s {
+  UV_HANDLE_FIELDS
+  uv_poll_cb poll_cb;
+  UV_POLL_PRIVATE_FIELDS
+};
+
+struct uv_prepare_s {
+  UV_HANDLE_FIELDS
+  UV_PREPARE_PRIVATE_FIELDS
+};
+
+struct uv_check_s {
+  UV_HANDLE_FIELDS
+  UV_CHECK_PRIVATE_FIELDS
+};
+
+struct uv_idle_s {
+  UV_HANDLE_FIELDS
+  UV_IDLE_PRIVATE_FIELDS
+};
+
+/*
+ * uv_timer_t is a subclass of uv_handle_t.
+ *
+ * Used to get woken up at a specified time in the future.
+ */
+struct uv_timer_s {
+  UV_HANDLE_FIELDS
+  UV_TIMER_PRIVATE_FIELDS
+};
+
+/*
+ * uv_process_t is a subclass of uv_handle_t.
+ */
+struct uv_process_s {
+  UV_HANDLE_FIELDS
+  uv_exit_cb exit_cb;
+  int pid;
+  UV_PROCESS_PRIVATE_FIELDS
+};
+
+struct uv_fs_event_s {
+  UV_HANDLE_FIELDS
+  /* private */
+  char* path;
+  UV_FS_EVENT_PRIVATE_FIELDS
+};
+
+struct uv_signal_s {
+  UV_HANDLE_FIELDS
+  uv_signal_cb signal_cb;
+  int signum;
+  UV_SIGNAL_PRIVATE_FIELDS
+};
+
+/* Forward declaration for thread safety */
+struct UV_CAPABILITY("single-threaded") single_threaded_token;
+
+struct uv_loop_s {
+  /* User data - use this for whatever. */
+  union {
+    void* data;
+    struct single_threaded_token* owner_thread;
+  };
+  /* Loop reference counting. */
+  unsigned int active_handles UV_GUARDED_BY(owner_thread);
+  struct uv__queue handle_queue UV_GUARDED_BY(owner_thread);
+  union {
+    void* unused;
+    unsigned int count;
+  } active_reqs UV_GUARDED_BY(owner_thread);
+  /* Internal storage for future extensions. */
+  void* internal_fields UV_GUARDED_BY(owner_thread);
+  /* Internal flag to signal loop stop. */
+  unsigned int stop_flag UV_GUARDED_BY(owner_thread);
+  void* reserved[4];
+  UV_LOOP_PRIVATE_FIELDS
+};
+
+
+UV_EXTERN unsigned int uv_version(void);
+UV_EXTERN const char* uv_version_string(void);
+
+typedef void* (*uv_malloc_func)(size_t size);
+typedef void* (*uv_realloc_func)(void* ptr, size_t size);
+typedef void* (*uv_calloc_func)(size_t count, size_t size);
+typedef void (*uv_free_func)(void* ptr);
+
+UV_EXTERN void uv_library_shutdown(void);
+
+UV_EXTERN int uv_replace_allocator(uv_malloc_func malloc_func,
+                                   uv_realloc_func realloc_func,
+                                   uv_calloc_func calloc_func,
+                                   uv_free_func free_func);
+
+UV_EXTERN uv_loop_t* uv_default_loop(void);
+UV_EXTERN int uv_loop_init(uv_loop_t* loop) UV_ACQUIRE(loop->owner_thread);
+UV_EXTERN int uv_loop_close(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+/*
+ * NOTE:
+ *  This function is DEPRECATED, users should
+ *  allocate the loop manually and use uv_loop_init instead.
+ */
+UV_EXTERN uv_loop_t* uv_loop_new(void);
+/*
+ * NOTE:
+ *  This function is DEPRECATED. Users should use
+ *  uv_loop_close and free the memory manually instead.
+ */
+UV_EXTERN void uv_loop_delete(uv_loop_t*);
+UV_EXTERN size_t uv_loop_size(void);
+UV_EXTERN int uv_loop_alive(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+UV_EXTERN int uv_loop_configure(uv_loop_t* loop, uv_loop_option option, ...) UV_REQUIRES_LOOP(loop);
+UV_EXTERN int uv_loop_fork(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+
+UV_EXTERN int uv_run(uv_loop_t* loop, uv_run_mode mode) UV_REQUIRES_LOOP(loop);
+UV_EXTERN void uv_stop(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+
+UV_EXTERN void uv_ref(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN void uv_unref(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_has_ref(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+
+UV_EXTERN void uv_update_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+UV_EXTERN uint64_t uv_now(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+
+UV_EXTERN uv_os_fd_t uv_backend_fd(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+UV_EXTERN int uv_backend_timeout(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 typedef enum {
   UV_LEAVE_GROUP = 0,
@@ -536,28 +730,12 @@ struct uv_shutdown_s {
 };
 
 
-#define UV_HANDLE_FIELDS                                                      \
-  /* public */                                                                \
-  void* data;                                                                 \
-  /* read-only */                                                             \
-  uv_loop_t* loop;                                                            \
-  uv_handle_type type;                                                        \
-  /* private */                                                               \
-  uv_close_cb close_cb;                                                       \
-  struct uv__queue handle_queue;                                              \
-  UV_HANDLE_PRIVATE_FIELDS                                                    \
-
-/* The abstract base class of all handles. */
-struct uv_handle_s {
-  UV_HANDLE_FIELDS
-};
-
 UV_EXTERN size_t uv_handle_size(uv_handle_type type);
-UV_EXTERN uv_handle_type uv_handle_get_type(const uv_handle_t* handle);
+UV_EXTERN uv_handle_type uv_handle_get_type(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN const char* uv_handle_type_name(uv_handle_type type);
-UV_EXTERN void* uv_handle_get_data(const uv_handle_t* handle);
-UV_EXTERN uv_loop_t* uv_handle_get_loop(const uv_handle_t* handle);
-UV_EXTERN void uv_handle_set_data(uv_handle_t* handle, void* data);
+UV_EXTERN void* uv_handle_get_data(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN uv_loop_t* uv_handle_get_loop(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN void uv_handle_set_data(uv_handle_t* handle, void* data) UV_REQUIRES_HANDLE_LOOP(handle);
 
 UV_EXTERN size_t uv_req_size(uv_req_type type);
 UV_EXTERN void* uv_req_get_data(const uv_req_t* req);
@@ -566,7 +744,7 @@ UV_EXTERN uv_loop_t* uv_req_get_loop(const uv_req_t* handle);
 UV_EXTERN uv_req_type uv_req_get_type(const uv_req_t* req);
 UV_EXTERN const char* uv_req_type_name(uv_req_type type);
 
-UV_EXTERN int uv_is_active(const uv_handle_t* handle);
+UV_EXTERN int uv_is_active(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 UV_EXTERN void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg);
 
@@ -574,12 +752,12 @@ UV_EXTERN void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg);
 UV_EXTERN void uv_print_all_handles(uv_loop_t* loop, /*FILE*/void* stream);
 UV_EXTERN void uv_print_active_handles(uv_loop_t* loop, /*FILE*/void* stream);
 
-UV_EXTERN void uv_close(uv_handle_t* handle, uv_close_cb close_cb);
+UV_EXTERN void uv_close(uv_handle_t* handle, uv_close_cb close_cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
-UV_EXTERN int uv_send_buffer_size(uv_handle_t* handle, int* value);
-UV_EXTERN int uv_recv_buffer_size(uv_handle_t* handle, int* value);
+UV_EXTERN int uv_send_buffer_size(uv_handle_t* handle, int* value) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_recv_buffer_size(uv_handle_t* handle, int* value) UV_REQUIRES_HANDLE_LOOP(handle);
 
-UV_EXTERN int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd);
+UV_EXTERN int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd) UV_REQUIRES_HANDLE_LOOP(handle);
 
 UV_EXTERN uv_buf_t uv_buf_init(char* base, size_t len);
 
@@ -656,35 +834,15 @@ UV_EXTERN int uv_socketpair(int type,
                             int flags0,
                             int flags1);
 
-#define UV_STREAM_FIELDS                                                      \
-  /* number of bytes queued for writing */                                    \
-  size_t write_queue_size;                                                    \
-  uv_alloc_cb alloc_cb;                                                       \
-  uv_read_cb read_cb;                                                         \
-  /* private */                                                               \
-  UV_STREAM_PRIVATE_FIELDS
+UV_EXTERN size_t uv_stream_get_write_queue_size(const uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 
-/*
- * uv_stream_t is a subclass of uv_handle_t.
- *
- * uv_stream is an abstract class.
- *
- * uv_stream_t is the parent class of uv_tcp_t, uv_pipe_t and uv_tty_t.
- */
-struct uv_stream_s {
-  UV_HANDLE_FIELDS
-  UV_STREAM_FIELDS
-};
-
-UV_EXTERN size_t uv_stream_get_write_queue_size(const uv_stream_t* stream);
-
-UV_EXTERN int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb);
-UV_EXTERN int uv_accept(uv_stream_t* server, uv_stream_t* client);
+UV_EXTERN int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) UV_REQUIRES_HANDLE_LOOP(stream);
+UV_EXTERN int uv_accept(uv_stream_t* server, uv_stream_t* client) UV_REQUIRES_HANDLE_LOOP(server);
 
 UV_EXTERN int uv_read_start(uv_stream_t*,
                             uv_alloc_cb alloc_cb,
                             uv_read_cb read_cb);
-UV_EXTERN int uv_read_stop(uv_stream_t*);
+UV_EXTERN int uv_read_stop(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 
 UV_EXTERN int uv_write(uv_write_t* req,
                        uv_stream_t* handle,
@@ -715,33 +873,21 @@ struct uv_write_s {
 };
 
 
-UV_EXTERN int uv_is_readable(const uv_stream_t* handle);
-UV_EXTERN int uv_is_writable(const uv_stream_t* handle);
+UV_EXTERN int uv_is_readable(const uv_stream_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_is_writable(const uv_stream_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
-UV_EXTERN int uv_stream_set_blocking(uv_stream_t* handle, int blocking);
+UV_EXTERN int uv_stream_set_blocking(uv_stream_t* handle, int blocking) UV_REQUIRES_HANDLE_LOOP(handle);
 
-UV_EXTERN int uv_is_closing(const uv_handle_t* handle);
+UV_EXTERN int uv_is_closing(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
-
-/*
- * uv_tcp_t is a subclass of uv_stream_t.
- *
- * Represents a TCP stream or TCP server.
- */
-struct uv_tcp_s {
-  UV_HANDLE_FIELDS
-  UV_STREAM_FIELDS
-  UV_TCP_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle);
-UV_EXTERN int uv_tcp_init_ex(uv_loop_t*, uv_tcp_t* handle, unsigned int flags);
-UV_EXTERN int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock);
-UV_EXTERN int uv_tcp_nodelay(uv_tcp_t* handle, int enable);
+UV_EXTERN int uv_tcp_init(uv_loop_t* loop, uv_tcp_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* handle, unsigned int flags) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_tcp_nodelay(uv_tcp_t* handle, int enable) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_tcp_keepalive(uv_tcp_t* handle,
                                int enable,
-                               unsigned int delay);
-UV_EXTERN int uv_tcp_simultaneous_accepts(uv_tcp_t* handle, int enable);
+                               unsigned int delay) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_tcp_simultaneous_accepts(uv_tcp_t* handle, int enable) UV_REQUIRES_HANDLE_LOOP(handle);
 
 enum uv_tcp_flags {
   /* Used with uv_tcp_bind, when an IPv6 address is used. */
@@ -761,18 +907,18 @@ enum uv_tcp_flags {
 
 UV_EXTERN int uv_tcp_bind(uv_tcp_t* handle,
                           const struct sockaddr* addr,
-                          unsigned int flags);
+                          unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_tcp_getsockname(const uv_tcp_t* handle,
                                  struct sockaddr* name,
-                                 int* namelen);
+                                 int* namelen) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_tcp_getpeername(const uv_tcp_t* handle,
                                  struct sockaddr* name,
-                                 int* namelen);
-UV_EXTERN int uv_tcp_close_reset(uv_tcp_t* handle, uv_close_cb close_cb);
+                                 int* namelen) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_tcp_close_reset(uv_tcp_t* handle, uv_close_cb close_cb) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_tcp_connect(uv_connect_t* req,
                              uv_tcp_t* handle,
                              const struct sockaddr* addr,
-                             uv_connect_cb cb);
+                             uv_connect_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* uv_connect_t is a subclass of uv_req_t. */
 struct uv_connect_s {
@@ -844,29 +990,6 @@ enum uv_udp_flags {
   UV_UDP_RECVMMSG = 256
 };
 
-typedef void (*uv_udp_send_cb)(uv_udp_send_t* req, int status);
-typedef void (*uv_udp_recv_cb)(uv_udp_t* handle,
-                               ssize_t nread,
-                               const uv_buf_t* buf,
-                               const struct sockaddr* addr,
-                               unsigned flags);
-
-/* uv_udp_t is a subclass of uv_handle_t. */
-struct uv_udp_s {
-  UV_HANDLE_FIELDS
-  /* read-only */
-  /*
-   * Number of bytes queued for sending. This field strictly shows how much
-   * information is currently queued.
-   */
-  size_t send_queue_size;
-  /*
-   * Number of send requests currently in the queue awaiting to be processed.
-   */
-  size_t send_queue_count;
-  UV_UDP_PRIVATE_FIELDS
-};
-
 /* uv_udp_send_t is a subclass of uv_req_t. */
 struct uv_udp_send_s {
   UV_REQ_FIELDS
@@ -875,70 +998,58 @@ struct uv_udp_send_s {
   UV_UDP_SEND_PRIVATE_FIELDS
 };
 
-UV_EXTERN int uv_udp_init(uv_loop_t*, uv_udp_t* handle);
-UV_EXTERN int uv_udp_init_ex(uv_loop_t*, uv_udp_t* handle, unsigned int flags);
-UV_EXTERN int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock);
+UV_EXTERN int uv_udp_init(uv_loop_t* loop, uv_udp_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_udp_init_ex(uv_loop_t* loop, uv_udp_t* handle, unsigned int flags) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_bind(uv_udp_t* handle,
                           const struct sockaddr* addr,
-                          unsigned int flags);
-UV_EXTERN int uv_udp_connect(uv_udp_t* handle, const struct sockaddr* addr);
+                          unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_connect(uv_udp_t* handle, const struct sockaddr* addr) UV_REQUIRES_HANDLE_LOOP(handle);
 
 UV_EXTERN int uv_udp_getpeername(const uv_udp_t* handle,
                                  struct sockaddr* name,
-                                 int* namelen);
+                                 int* namelen) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_getsockname(const uv_udp_t* handle,
                                  struct sockaddr* name,
-                                 int* namelen);
+                                 int* namelen) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_set_membership(uv_udp_t* handle,
                                     const char* multicast_addr,
                                     const char* interface_addr,
-                                    uv_membership membership);
+                                    uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_set_source_membership(uv_udp_t* handle,
                                            const char* multicast_addr,
                                            const char* interface_addr,
                                            const char* source_addr,
-                                           uv_membership membership);
-UV_EXTERN int uv_udp_set_multicast_loop(uv_udp_t* handle, int on);
-UV_EXTERN int uv_udp_set_multicast_ttl(uv_udp_t* handle, int ttl);
+                                           uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_set_multicast_loop(uv_udp_t* handle, int on) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_set_multicast_ttl(uv_udp_t* handle, int ttl) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_set_multicast_interface(uv_udp_t* handle,
-                                             const char* interface_addr);
-UV_EXTERN int uv_udp_set_broadcast(uv_udp_t* handle, int on);
-UV_EXTERN int uv_udp_set_ttl(uv_udp_t* handle, int ttl);
+                                             const char* interface_addr) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_set_broadcast(uv_udp_t* handle, int on) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_set_ttl(uv_udp_t* handle, int ttl) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_send(uv_udp_send_t* req,
                           uv_udp_t* handle,
                           const uv_buf_t bufs[],
                           unsigned int nbufs,
                           const struct sockaddr* addr,
-                          uv_udp_send_cb send_cb);
+                          uv_udp_send_cb send_cb) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_try_send(uv_udp_t* handle,
                               const uv_buf_t bufs[],
                               unsigned int nbufs,
-                              const struct sockaddr* addr);
+                              const struct sockaddr* addr) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_try_send2(uv_udp_t* handle,
                                unsigned int count,
                                uv_buf_t* bufs[/*count*/],
                                unsigned int nbufs[/*count*/],
                                struct sockaddr* addrs[/*count*/],
-                               unsigned int flags);
+                               unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_udp_recv_start(uv_udp_t* handle,
                                 uv_alloc_cb alloc_cb,
-                                uv_udp_recv_cb recv_cb);
-UV_EXTERN int uv_udp_using_recvmmsg(const uv_udp_t* handle);
-UV_EXTERN int uv_udp_recv_stop(uv_udp_t* handle);
-UV_EXTERN size_t uv_udp_get_send_queue_size(const uv_udp_t* handle);
-UV_EXTERN size_t uv_udp_get_send_queue_count(const uv_udp_t* handle);
-
-
-/*
- * uv_tty_t is a subclass of uv_stream_t.
- *
- * Representing a stream for the console.
- */
-struct uv_tty_s {
-  UV_HANDLE_FIELDS
-  UV_STREAM_FIELDS
-  UV_TTY_PRIVATE_FIELDS
-};
+                                uv_udp_recv_cb recv_cb) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_using_recvmmsg(const uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_udp_recv_stop(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN size_t uv_udp_get_send_queue_size(const uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN size_t uv_udp_get_send_queue_count(const uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 typedef enum {
   /* Initial/normal terminal mode */
@@ -961,10 +1072,10 @@ typedef enum {
   UV_TTY_UNSUPPORTED
 } uv_tty_vtermstate_t;
 
-UV_EXTERN int uv_tty_init(uv_loop_t*, uv_tty_t*, uv_os_fd_t fd, int readable);
-UV_EXTERN int uv_tty_set_mode(uv_tty_t*, uv_tty_mode_t mode);
+UV_EXTERN int uv_tty_init(uv_loop_t* loop, uv_tty_t* handle, uv_os_fd_t fd, int readable) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_tty_set_mode(uv_tty_t* handle, uv_tty_mode_t mode) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_tty_reset_mode(void);
-UV_EXTERN int uv_tty_get_winsize(uv_tty_t*, int* width, int* height);
+UV_EXTERN int uv_tty_get_winsize(uv_tty_t* handle, int* width, int* height) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN void uv_tty_set_vterm_state(uv_tty_vtermstate_t state);
 UV_EXTERN int uv_tty_get_vterm_state(uv_tty_vtermstate_t* state);
 
@@ -984,53 +1095,34 @@ enum {
   UV_PIPE_NO_TRUNCATE = 1u << 0
 };
 
-/*
- * uv_pipe_t is a subclass of uv_stream_t.
- *
- * Representing a pipe stream or pipe server. On Windows this is a Named
- * Pipe. On Unix this is a Unix domain socket.
- */
-struct uv_pipe_s {
-  UV_HANDLE_FIELDS
-  UV_STREAM_FIELDS
-  int ipc; /* non-zero if this pipe is used for passing handles */
-  UV_PIPE_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
-UV_EXTERN int uv_pipe_open(uv_pipe_t*, uv_os_fd_t file);
-UV_EXTERN int uv_pipe_bind(uv_pipe_t* handle, const char* name);
+UV_EXTERN int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_pipe_open(uv_pipe_t* handle, uv_os_fd_t file) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_pipe_bind(uv_pipe_t* handle, const char* name) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_pipe_bind2(uv_pipe_t* handle,
                             const char* name,
                             size_t namelen,
-                            unsigned int flags);
+                            unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN void uv_pipe_connect(uv_connect_t* req,
                                uv_pipe_t* handle,
                                const char* name,
-                               uv_connect_cb cb);
+                               uv_connect_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_pipe_connect2(uv_connect_t* req,
                                uv_pipe_t* handle,
                                const char* name,
                                size_t namelen,
                                unsigned int flags,
-                               uv_connect_cb cb);
+                               uv_connect_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_pipe_getsockname(const uv_pipe_t* handle,
                                   char* buffer,
-                                  size_t* size);
+                                  size_t* size) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_pipe_getpeername(const uv_pipe_t* handle,
                                   char* buffer,
-                                  size_t* size);
-UV_EXTERN void uv_pipe_pending_instances(uv_pipe_t* handle, int count);
-UV_EXTERN int uv_pipe_pending_count(uv_pipe_t* handle);
-UV_EXTERN uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle);
-UV_EXTERN int uv_pipe_chmod(uv_pipe_t* handle, int flags);
+                                  size_t* size) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN void uv_pipe_pending_instances(uv_pipe_t* handle, int count) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_pipe_pending_count(uv_pipe_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_pipe_chmod(uv_pipe_t* handle, int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 
-
-struct uv_poll_s {
-  UV_HANDLE_FIELDS
-  uv_poll_cb poll_cb;
-  UV_POLL_PRIVATE_FIELDS
-};
 
 enum uv_poll_event {
   UV_READABLE = 1,
@@ -1041,72 +1133,39 @@ enum uv_poll_event {
 
 UV_EXTERN int uv_poll_init(uv_loop_t* loop,
                            uv_poll_t* handle,
-                           uv_os_sock_t socket);
-UV_EXTERN int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb);
-UV_EXTERN int uv_poll_stop(uv_poll_t* handle);
+                           uv_os_sock_t socket) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
+UV_EXTERN int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_poll_stop(uv_poll_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 
-struct uv_prepare_s {
-  UV_HANDLE_FIELDS
-  UV_PREPARE_PRIVATE_FIELDS
-};
+UV_EXTERN int uv_prepare_init(uv_loop_t* loop, uv_prepare_t* prepare) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(prepare);
+UV_EXTERN int uv_prepare_start(uv_prepare_t* prepare, uv_prepare_cb cb) UV_REQUIRES_HANDLE_LOOP(prepare);
+UV_EXTERN int uv_prepare_stop(uv_prepare_t* prepare) UV_REQUIRES_HANDLE_LOOP(prepare);
 
-UV_EXTERN int uv_prepare_init(uv_loop_t*, uv_prepare_t* prepare);
-UV_EXTERN int uv_prepare_start(uv_prepare_t* prepare, uv_prepare_cb cb);
-UV_EXTERN int uv_prepare_stop(uv_prepare_t* prepare);
+UV_EXTERN int uv_check_init(uv_loop_t* loop, uv_check_t* check) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(check);
+UV_EXTERN int uv_check_start(uv_check_t* check, uv_check_cb cb) UV_REQUIRES_HANDLE_LOOP(check);
+UV_EXTERN int uv_check_stop(uv_check_t* check) UV_REQUIRES_HANDLE_LOOP(check);
 
-
-struct uv_check_s {
-  UV_HANDLE_FIELDS
-  UV_CHECK_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_check_init(uv_loop_t*, uv_check_t* check);
-UV_EXTERN int uv_check_start(uv_check_t* check, uv_check_cb cb);
-UV_EXTERN int uv_check_stop(uv_check_t* check);
+UV_EXTERN int uv_idle_init(uv_loop_t* loop, uv_idle_t* idle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(idle);
+UV_EXTERN int uv_idle_start(uv_idle_t* idle, uv_idle_cb cb) UV_REQUIRES_HANDLE_LOOP(idle);
+UV_EXTERN int uv_idle_stop(uv_idle_t* idle) UV_REQUIRES_HANDLE_LOOP(idle);
 
 
-struct uv_idle_s {
-  UV_HANDLE_FIELDS
-  UV_IDLE_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_idle_init(uv_loop_t*, uv_idle_t* idle);
-UV_EXTERN int uv_idle_start(uv_idle_t* idle, uv_idle_cb cb);
-UV_EXTERN int uv_idle_stop(uv_idle_t* idle);
-
-
-struct uv_async_s {
-  UV_HANDLE_FIELDS
-  UV_ASYNC_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_async_init(uv_loop_t*,
+UV_EXTERN int uv_async_init(uv_loop_t* loop,
                             uv_async_t* async,
-                            uv_async_cb async_cb);
+                            uv_async_cb async_cb) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(async);
 UV_EXTERN int uv_async_send(uv_async_t* async);
 
-
-/*
- * uv_timer_t is a subclass of uv_handle_t.
- *
- * Used to get woken up at a specified time in the future.
- */
-struct uv_timer_s {
-  UV_HANDLE_FIELDS
-  UV_TIMER_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_timer_init(uv_loop_t*, uv_timer_t* handle);
+UV_EXTERN int uv_timer_init(uv_loop_t* loop, uv_timer_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
 UV_EXTERN int uv_timer_start(uv_timer_t* handle,
                              uv_timer_cb cb,
                              uint64_t timeout,
-                             uint64_t repeat);
-UV_EXTERN int uv_timer_stop(uv_timer_t* handle);
-UV_EXTERN int uv_timer_again(uv_timer_t* handle);
-UV_EXTERN void uv_timer_set_repeat(uv_timer_t* handle, uint64_t repeat);
-UV_EXTERN uint64_t uv_timer_get_repeat(const uv_timer_t* handle);
-UV_EXTERN uint64_t uv_timer_get_due_in(const uv_timer_t* handle);
+                             uint64_t repeat) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_timer_stop(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_timer_again(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN void uv_timer_set_repeat(uv_timer_t* handle, uint64_t repeat) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN uint64_t uv_timer_get_repeat(const uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN uint64_t uv_timer_get_due_in(const uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 
 /*
@@ -1147,7 +1206,7 @@ UV_EXTERN int uv_getnameinfo(uv_loop_t* loop,
                              uv_getnameinfo_t* req,
                              uv_getnameinfo_cb getnameinfo_cb,
                              const struct sockaddr* addr,
-                             int flags);
+                             int flags) UV_REQUIRES_LOOP(loop);
 
 
 /* uv_spawn() options. */
@@ -1304,22 +1363,12 @@ enum uv_process_flags {
   UV_PROCESS_WINDOWS_USE_PARENT_ERROR_MODE = (1 << 8)
 };
 
-/*
- * uv_process_t is a subclass of uv_handle_t.
- */
-struct uv_process_s {
-  UV_HANDLE_FIELDS
-  uv_exit_cb exit_cb;
-  int pid;
-  UV_PROCESS_PRIVATE_FIELDS
-};
-
 UV_EXTERN int uv_spawn(uv_loop_t* loop,
                        uv_process_t* handle,
                        const uv_process_options_t* options);
-UV_EXTERN int uv_process_kill(uv_process_t*, int signum);
+UV_EXTERN int uv_process_kill(uv_process_t* handle, int signum) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_kill(int pid, int signum);
-UV_EXTERN uv_pid_t uv_process_get_pid(const uv_process_t*);
+UV_EXTERN uv_pid_t uv_process_get_pid(const uv_process_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 
 /*
@@ -1335,7 +1384,7 @@ struct uv_work_s {
 UV_EXTERN int uv_queue_work(uv_loop_t* loop,
                             uv_work_t* req,
                             uv_work_cb work_cb,
-                            uv_after_work_cb after_work_cb);
+                            uv_after_work_cb after_work_cb) UV_EXCLUDES(loop->owner_thread);
 
 UV_EXTERN int uv_cancel(uv_req_t* req);
 
@@ -1621,7 +1670,7 @@ UV_EXTERN int uv_fs_open(uv_loop_t* loop,
                          const char* path,
                          int flags,
                          int mode,
-                         uv_fs_cb cb);
+                         uv_fs_cb cb) UV_REQUIRES_LOOP_IF_NOT_NULL(loop);
 UV_EXTERN int uv_fs_read(uv_loop_t* loop,
                          uv_fs_t* req,
                          uv_os_fd_t file,
@@ -1845,50 +1894,41 @@ enum uv_fs_event {
   UV_CHANGE = 2
 };
 
-
-struct uv_fs_event_s {
-  UV_HANDLE_FIELDS
-  /* private */
-  char* path;
-  UV_FS_EVENT_PRIVATE_FIELDS
-};
-
-
 /*
  * uv_fs_stat() based polling file watcher.
  */
+
 struct uv_fs_poll_s {
   UV_HANDLE_FIELDS
   /* Private, don't touch. */
   void* poll_ctx;
 };
 
-UV_EXTERN int uv_fs_poll_init(uv_loop_t* loop, uv_fs_poll_t* handle);
+typedef void (*uv_fs_poll_cb)(uv_fs_poll_t* handle,
+                              int status,
+                              const uv_stat_t* prev,
+                              const uv_stat_t* curr);
+
+
+UV_EXTERN int uv_fs_poll_init(uv_loop_t* loop, uv_fs_poll_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
 UV_EXTERN int uv_fs_poll_start(uv_fs_poll_t* handle,
                                uv_fs_poll_cb poll_cb,
                                const char* path,
-                               unsigned int interval);
-UV_EXTERN int uv_fs_poll_stop(uv_fs_poll_t* handle);
+                               unsigned int interval) UV_REQUIRES_HANDLE_LOOP(handle);
+UV_EXTERN int uv_fs_poll_stop(uv_fs_poll_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_fs_poll_getpath(uv_fs_poll_t* handle,
                                  char* buffer,
-                                 size_t* size);
+                                 size_t* size) UV_REQUIRES_HANDLE_LOOP(handle);
 
 
-struct uv_signal_s {
-  UV_HANDLE_FIELDS
-  uv_signal_cb signal_cb;
-  int signum;
-  UV_SIGNAL_PRIVATE_FIELDS
-};
-
-UV_EXTERN int uv_signal_init(uv_loop_t* loop, uv_signal_t* handle);
+UV_EXTERN int uv_signal_init(uv_loop_t* loop, uv_signal_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
 UV_EXTERN int uv_signal_start(uv_signal_t* handle,
                               uv_signal_cb signal_cb,
                               int signum);
 UV_EXTERN int uv_signal_start_oneshot(uv_signal_t* handle,
                                       uv_signal_cb signal_cb,
                                       int signum);
-UV_EXTERN int uv_signal_stop(uv_signal_t* handle);
+UV_EXTERN int uv_signal_stop(uv_signal_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 UV_EXTERN void uv_loadavg(double avg[3]);
 
@@ -1924,12 +1964,12 @@ enum uv_fs_event_flags {
 };
 
 
-UV_EXTERN int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle);
+UV_EXTERN int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
 UV_EXTERN int uv_fs_event_start(uv_fs_event_t* handle,
                                 uv_fs_event_cb cb,
                                 const char* path,
                                 unsigned int flags);
-UV_EXTERN int uv_fs_event_stop(uv_fs_event_t* handle);
+UV_EXTERN int uv_fs_event_stop(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_fs_event_getpath(uv_fs_event_t* handle,
                                   char* buffer,
                                   size_t* size);
@@ -1954,6 +1994,12 @@ struct uv_random_s {
   uv_random_cb cb;
   struct uv__work work_req;
 };
+
+#define XX(uc, lc) uv_##lc##_t lc;
+union uv_any_req {
+  UV_REQ_TYPE_MAP(XX)
+};
+#undef XX
 
 UV_EXTERN int uv_random(uv_loop_t* loop,
                         uv_random_t* req,
@@ -2068,8 +2114,6 @@ UV_EXTERN void uv_key_set(uv_key_t* key, void* value);
 
 UV_EXTERN int uv_gettimeofday(uv_timeval_t* tv);
 
-typedef void (*uv_thread_cb)(void* arg);
-
 UV_EXTERN int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg);
 UV_EXTERN int uv_thread_detach(uv_thread_t* tid);
 
@@ -2106,36 +2150,6 @@ UV_EXTERN int uv_thread_setname(const char* name);
 UV_EXTERN int uv_thread_getname(uv_thread_t* tid, char* name, size_t size);
 
 
-/* The presence of these unions force similar struct layout. */
-#define XX(_, name) uv_ ## name ## _t name;
-union uv_any_handle {
-  UV_HANDLE_TYPE_MAP(XX)
-};
-
-union uv_any_req {
-  UV_REQ_TYPE_MAP(XX)
-};
-#undef XX
-
-
-struct uv_loop_s {
-  /* User data - use this for whatever. */
-  void* data;
-  /* Loop reference counting. */
-  unsigned int active_handles;
-  struct uv__queue handle_queue;
-  union {
-    void* unused;
-    unsigned int count;
-  } active_reqs;
-  /* Internal storage for future extensions. */
-  void* internal_fields;
-  /* Internal flag to signal loop stop. */
-  unsigned int stop_flag;
-  void* reserved[4];
-  UV_LOOP_PRIVATE_FIELDS
-};
-
 UV_EXTERN void* uv_loop_get_data(const uv_loop_t*);
 UV_EXTERN void uv_loop_set_data(uv_loop_t*, void* data);
 
@@ -2150,6 +2164,9 @@ UV_EXTERN ssize_t uv_wtf8_length_as_utf16(const char* wtf8);
 UV_EXTERN void uv_wtf8_to_utf16(const char* wtf8,
                                 uint16_t* utf16,
                                 size_t utf16_len);
+
+static INLINE void uv_assume_closed(uv_handle_t *handle)
+UV_RELEASE_HANDLE_LOOP_ANY(handle) UV_NO_THREAD_SAFETY_ANALYSIS {}
 
 /* Don't export the private CPP symbols. */
 #undef UV_HANDLE_TYPE_PRIVATE

@@ -225,7 +225,7 @@ typedef struct {
   /* This handle holds the peer sockets for the fast variant of uv_poll_t */  \
   SOCKET poll_peer_sockets[UV_MSAFD_PROVIDER_COUNT];                          \
   /* Threadpool */                                                            \
-  struct uv__queue wq;                                                        \
+  struct uv__queue wq UV_GUARDED_BY(&wq_mutex);                              \
   uv_mutex_t wq_mutex;                                                        \
   uv_async_t wq_async;                                                        \
   /* Async handle */                                                          \

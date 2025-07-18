@@ -117,7 +117,7 @@ int uv_async_send(uv_async_t* handle) {
 
 /* Wait for the busy flag to clear before closing.
  * Only call this from the event loop thread. */
-static void uv__async_spin(uv_async_t* handle) {
+static void uv__async_spin(uv_async_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   _Atomic int* pending;
   _Atomic int* busy;
   int i;
@@ -150,7 +150,7 @@ static void uv__async_spin(uv_async_t* handle) {
 }
 
 
-void uv__async_close(uv_async_t* handle) {
+void uv__async_close(uv_async_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv__async_spin(handle);
   uv__queue_remove(&handle->queue);
   uv__handle_stop(handle);
@@ -342,7 +342,7 @@ UV_EXCLUDES(&kqueue_runtime_detection_guard)
 }
 
 
-void uv__async_stop(uv_loop_t* loop) {
+void uv__async_stop(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   struct uv__queue queue;
   struct uv__queue* q;
   uv_async_t* h;
@@ -376,7 +376,7 @@ void uv__async_stop(uv_loop_t* loop) {
 }
 
 
-int uv__async_fork(uv_loop_t* loop) UV_EXCLUDES(&kqueue_runtime_detection_guard) {
+int uv__async_fork(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_EXCLUDES(&kqueue_runtime_detection_guard) {
   struct uv__queue queue;
   struct uv__queue* q;
   uv_async_t* h;

@@ -58,7 +58,7 @@ static const env_var_t required_vars[] = { /* keep me sorted */
 
 
 static uv_once_t uv_global_job_handle_init_guard_ = UV_ONCE_INIT;
-static HANDLE uv_global_job_handle_ UV_GUARDED_BY(uv_global_job_handle_init_guard_);
+static HANDLE uv_global_job_handle_ UV_GUARDED_BY(&uv_global_job_handle_init_guard_);
 
 
 static void uv__init_global_job_handle(void) UV_REQUIRES(&uv_global_job_handle_init_guard_) {

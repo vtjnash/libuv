@@ -103,11 +103,16 @@ struct uv__cf_loop_state_s {
 };
 
 /* Forward declarations */
-static void uv__cf_loop_cb(void* arg);
+static void uv__cf_loop_cb(void* arg) UV_EXCLUDES(&((uv_loop_t*)arg)->cf_mutex);
 static void* uv__cf_loop_runner(void* arg);
 static int uv__cf_loop_signal(uv_loop_t* loop,
                               uv_fs_event_t* handle,
-                              uv__cf_loop_signal_type_t type);
+                              uv__cf_loop_signal_type_t type) UV_EXCLUDES(&loop->cf_mutex);
+static void uv__fsevents_cb(uv_async_t* cb) UV_EXCLUDES(&((uv_fs_event_t*)cb->data)->cf_mutex);
+static void uv__fsevents_push_event(uv_fs_event_t* handle,
+                                    struct uv__queue* events,
+                                    int err) UV_EXCLUDES(&handle->cf_mutex);
+static int uv__fsevents_loop_init(uv_loop_t* loop) UV_EXCLUDES(&loop->cf_mutex);
 
 /* Lazy-loaded by uv__fsevents_global_init(). */
 static CFArrayRef (*pCFArrayCreate)(CFAllocatorRef,
@@ -602,7 +607,9 @@ static int uv__fsevents_loop_init(uv_loop_t* loop) {
   if (err)
     goto fail_sem_init;
 
+  uv_mutex_assume_locked(&loop->cf_mutex);
   uv__queue_init(&loop->cf_signals);
+  uv_mutex_assume_unlocked(&loop->cf_mutex);
 
   err = uv_sem_init(&state->fsevent_sem, 0);
   if (err)
@@ -682,14 +689,16 @@ void uv__fsevents_loop_delete(uv_loop_t* loop) {
   uv_thread_join(&loop->cf_thread);
   uv_sem_destroy(&loop->cf_sem);
   uv_mutex_destroy(&loop->cf_mutex);
-
+  
   /* Free any remaining data */
+  uv_mutex_assume_locked(&loop->cf_mutex);
   while (!uv__queue_empty(&loop->cf_signals)) {
     q = uv__queue_head(&loop->cf_signals);
     s = uv__queue_data(q, uv__cf_loop_signal_t, member);
     uv__queue_remove(q);
     uv__free(s);
   }
+  uv_mutex_assume_unlocked(&loop->cf_mutex);
 
   /* Destroy state */
   state = loop->cf_state;
@@ -808,8 +817,10 @@ int uv__fsevents_init(uv_fs_event_t* handle) {
   handle->realpath_len = strlen(handle->realpath);
 
   /* Initialize event queue */
+  uv_mutex_assume_locked(&handle->cf_mutex);
   uv__queue_init(&handle->cf_events);
   handle->cf_error = 0;
+  uv_mutex_assume_unlocked(&handle->cf_mutex);
 
   /*
    * Events will occur in other thread.

@@ -32,7 +32,7 @@
 #include "heap-inl.h"
 
 uv_once_t uv_init_guard_ = UV_ONCE_INIT;
-static uv_mutex_t uv__loops_lock UV_GUARDED_BY(uv_init_guard_);
+static uv_mutex_t uv__loops_lock UV_GUARDED_BY(&uv_init_guard_);
 static struct uv__queue uv__loops UV_GUARDED_BY(&uv__loops_lock);
 
 

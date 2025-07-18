@@ -221,8 +221,8 @@ typedef struct {
   uv__io_t** watchers;                                                        \
   unsigned int nwatchers;                                                     \
   unsigned int nfds;                                                          \
-  struct uv__queue wq;                                                        \
   uv_mutex_t wq_mutex;                                                        \
+  struct uv__queue wq UV_GUARDED_BY(&wq_mutex);                               \
   uv_async_t wq_async;                                                        \
   uv_rwlock_t cloexec_lock;                                                   \
   uv_handle_t* closing_handles;                                               \

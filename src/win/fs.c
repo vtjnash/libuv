@@ -191,7 +191,7 @@ const WCHAR UNC_PATH_PREFIX_LEN = 8;
 
 static int uv__file_symlink_usermode_flag = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE; /* TODO(jwn): missing atomic */
 
-static DWORD uv__allocation_granularity UV_GUARDED_BY(uv_init_guard_);
+static DWORD uv__allocation_granularity UV_GUARDED_BY(&uv_init_guard_);
 
 typedef enum {
   FS__STAT_PATH_SUCCESS,

@@ -75,7 +75,7 @@ static void close_cb(uv_handle_t* handle) {
 }
 
 
-static void async_cb(uv_async_t* handle) UV_EXCLUDES(&mutex) {
+static void async_cb(uv_async_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) UV_EXCLUDES(&mutex) {
   int n;
 
   ASSERT_PTR_EQ(handle, &async);

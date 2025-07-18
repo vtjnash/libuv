@@ -24,7 +24,7 @@
 
 static uv_timer_t timer_handle;
 
-static void timer_cb(uv_timer_t* handle) {
+static void timer_cb(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   ASSERT(handle);
   uv_stop(handle->loop);
 }

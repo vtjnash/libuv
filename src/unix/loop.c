@@ -50,7 +50,9 @@ int uv_loop_init(uv_loop_t* loop) UV_EXCLUDES(&uv__signal_global_init_guard) {
          sizeof(lfields->loop_metrics.metrics));
 
   heap_init((struct heap*) &loop->timer_heap);
+  uv_mutex_assume_locked(&loop->wq_mutex);
   uv__queue_init(&loop->wq);
+  uv_mutex_assume_unlocked(&loop->wq_mutex);
   uv__queue_init(&loop->idle_handles);
   uv__queue_init(&loop->async_handles);
   uv__queue_init(&loop->check_handles);

@@ -142,12 +142,12 @@ void uv__loop_close(uv_loop_t* loop);
 
 int uv__read_start(uv_stream_t* stream,
                    uv_alloc_cb alloc_cb,
-                   uv_read_cb read_cb);
+                   uv_read_cb read_cb) UV_REQUIRES_HANDLE_LOOP(stream);
 
 int uv__tcp_bind(uv_tcp_t* tcp,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
-                 unsigned int flags);
+                 unsigned int flags) UV_REQUIRES_HANDLE_LOOP(tcp);
 
 #ifdef _WIN32
 extern uv_once_t uv_init_guard_;
@@ -160,25 +160,25 @@ int uv__tcp_connect(uv_connect_t* req,
 #ifdef _WIN32
 UV_REQUIRES_SHARED(&uv_init_guard_)
 #endif
-;
+UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_init_ex(uv_loop_t* loop,
                     uv_udp_t* handle,
                     unsigned flags,
-                    int domain);
+                    int domain) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_bind(uv_udp_t* handle,
                  const struct sockaddr* addr,
                  unsigned int  addrlen,
-                 unsigned int flags);
+                 unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_connect(uv_udp_t* handle,
                     const struct sockaddr* addr,
-                    unsigned int addrlen);
+                    unsigned int addrlen) UV_REQUIRES_HANDLE_LOOP(handle);
 
-int uv__udp_disconnect(uv_udp_t* handle);
+int uv__udp_disconnect(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
-int uv__udp_is_connected(uv_udp_t* handle);
+int uv__udp_is_connected(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_send(uv_udp_send_t* req,
                  uv_udp_t* handle,
@@ -186,26 +186,26 @@ int uv__udp_send(uv_udp_send_t* req,
                  unsigned int nbufs,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
-                 uv_udp_send_cb send_cb);
+                 uv_udp_send_cb send_cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_try_send(uv_udp_t* handle,
                      const uv_buf_t bufs[],
                      unsigned int nbufs,
                      const struct sockaddr* addr,
-                     unsigned int addrlen);
+                     unsigned int addrlen) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_try_send2(uv_udp_t* handle,
                       unsigned int count,
                       uv_buf_t* bufs[/*count*/],
                       unsigned int nbufs[/*count*/],
-                      struct sockaddr* addrs[/*count*/]);
+                      struct sockaddr* addrs[/*count*/]) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__udp_recv_start(uv_udp_t* handle, uv_alloc_cb alloccb,
-                       uv_udp_recv_cb recv_cb);
+                       uv_udp_recv_cb recv_cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
-int uv__udp_recv_stop(uv_udp_t* handle);
+int uv__udp_recv_stop(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
-void uv__fs_poll_close(uv_fs_poll_t* handle);
+void uv__fs_poll_close(uv_fs_poll_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 int uv__getaddrinfo_translate_error(int sys_err);    /* EAI_* error. */
 
@@ -219,13 +219,13 @@ void uv__work_submit(uv_loop_t* loop,
                      struct uv__work *w,
                      enum uv__work_kind kind,
                      void (*work)(struct uv__work *w),
-                     void (*done)(struct uv__work *w, int status));
+                     void (*done)(struct uv__work *w, int status)) UV_EXCLUDES(&loop->owner_thread);
 
-void uv__work_done(uv_async_t* handle);
+void uv__work_done(uv_async_t* handle) UV_EXCLUDES(&((uv_loop_t*)container_of(handle, uv_loop_t, wq_async))->wq_mutex, &((uv_loop_t*)container_of(handle, uv_loop_t, wq_async))->owner_thread);
 
 size_t uv__count_bufs(const uv_buf_t bufs[], unsigned int nbufs);
 
-int uv__socket_sockopt(uv_handle_t* handle, int optname, int* value);
+int uv__socket_sockopt(uv_handle_t* handle, int optname, int* value) UV_REQUIRES_HANDLE_LOOP(handle);
 
 void uv__fs_scandir_cleanup(uv_fs_t* req);
 void uv__fs_readdir_cleanup(uv_fs_t* req);
@@ -391,14 +391,14 @@ void* uv__realloc(void* ptr, size_t size);
 void* uv__reallocf(void* ptr, size_t size);
 
 /* Loop watcher prototypes */
-void uv__idle_close(uv_idle_t* handle);
-void uv__prepare_close(uv_prepare_t* handle);
-void uv__check_close(uv_check_t* handle);
+void uv__idle_close(uv_idle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__prepare_close(uv_prepare_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+void uv__check_close(uv_check_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* Timer prototypes */
 void uv__run_timers(uv_loop_t* loop);
 int uv__next_timeout(const uv_loop_t* loop);
-void uv__timer_close(uv_timer_t* handle);
+void uv__timer_close(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* Metrics prototypes */
 typedef struct uv__loop_metrics_s uv__loop_metrics_t;

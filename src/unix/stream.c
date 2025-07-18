@@ -231,7 +231,7 @@ static void uv__stream_osx_select(void* arg) {
 }
 
 
-static void uv__stream_osx_select_cb(uv_async_t* handle) {
+static void uv__stream_osx_select_cb(uv_async_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv__stream_select_t* s;
   uv_stream_t* stream;
   int events;
@@ -737,7 +737,7 @@ static void uv__write_req_finish(uv_write_t* req) {
 }
 
 
-static int uv__handle_fd(uv_handle_t* handle) {
+static int uv__handle_fd(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   switch (handle->type) {
     case UV_NAMED_PIPE:
     case UV_TCP:

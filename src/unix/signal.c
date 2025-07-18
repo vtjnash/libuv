@@ -56,9 +56,9 @@ static void uv__signal_unregister_handler(int signum);
 
 
 uv_once_t uv__signal_global_init_guard = UV_ONCE_INIT;
-static struct uv__signal_tree_s uv__signal_tree UV_GUARDED_BY(uv__signal_global_init_guard) =
+static struct uv__signal_tree_s uv__signal_tree UV_GUARDED_BY(&uv__signal_global_init_guard) =
     RB_INITIALIZER(uv__signal_tree);
-static int uv__signal_lock_pipefd[2] UV_GUARDED_BY(uv__signal_global_init_guard) = { -1, -1 };
+static int uv__signal_lock_pipefd[2] UV_GUARDED_BY(&uv__signal_global_init_guard) = { -1, -1 };
 
 RB_GENERATE_STATIC(uv__signal_tree_s,
                    uv_signal_s, tree_entry,

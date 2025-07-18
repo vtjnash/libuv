@@ -61,7 +61,7 @@ static int maybe_bind_socket(int fd) {
 }
 
 
-static int new_socket(uv_tcp_t* handle, int domain, unsigned int flags) {
+static int new_socket(uv_tcp_t* handle, int domain, unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle) {
   int sockfd;
   int err;
 
@@ -82,7 +82,7 @@ static int new_socket(uv_tcp_t* handle, int domain, unsigned int flags) {
 }
 
 
-static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned int flags) {
+static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle) {
   int sockfd;
   int err;
 

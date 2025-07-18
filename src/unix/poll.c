@@ -94,7 +94,7 @@ int uv_poll_init(uv_loop_t* loop, uv_poll_t* handle, int fd) {
 }
 
 
-static void uv__poll_stop(uv_poll_t* handle) {
+static void uv__poll_stop(uv_poll_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv__io_stop(handle->loop,
               &handle->io_watcher,
               POLLIN | POLLOUT | UV__POLLRDHUP | UV__POLLPRI);

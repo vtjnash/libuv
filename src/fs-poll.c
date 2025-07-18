@@ -51,7 +51,7 @@ struct poll_ctx {
 static int statbuf_eq(const uv_stat_t* a, const uv_stat_t* b);
 static void poll_cb(uv_fs_t* req);
 static void timer_cb(uv_timer_t* timer);
-static void timer_close_cb(uv_handle_t* handle);
+static void timer_close_cb(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 static const uv_stat_t zero_statbuf;
 
@@ -66,37 +66,35 @@ int uv_fs_poll_init(uv_loop_t* loop, uv_fs_poll_t* handle) {
 int uv_fs_poll_start(uv_fs_poll_t* handle,
                      uv_fs_poll_cb cb,
                      const char* path,
-                     unsigned int interval) {
+                     unsigned int interval) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct poll_ctx* ctx;
-  uv_loop_t* loop;
   size_t len;
   int err;
 
   if (uv_is_active((uv_handle_t*)handle))
     return 0;
 
-  loop = handle->loop;
   len = strlen(path);
   ctx = uv__calloc(1, sizeof(*ctx) + len);
 
   if (ctx == NULL)
     return UV_ENOMEM;
 
-  ctx->loop = loop;
+  ctx->loop = handle->loop;
   ctx->poll_cb = cb;
   ctx->interval = interval ? interval : 1;
-  ctx->start_time = uv_now(loop);
+  ctx->start_time = uv_now(handle->loop);
   ctx->parent_handle = handle;
   memcpy(ctx->path, path, len + 1);
 
-  err = uv_timer_init(loop, &ctx->timer_handle);
+  err = uv_timer_init(handle->loop, &ctx->timer_handle);
   if (err < 0)
     goto error;
 
   ctx->timer_handle.flags |= UV_HANDLE_INTERNAL;
   uv__handle_unref(&ctx->timer_handle);
 
-  err = uv_fs_stat(loop, &ctx->fs_req, ctx->path, poll_cb);
+  err = uv_fs_stat(handle->loop, &ctx->fs_req, ctx->path, poll_cb);
   if (err < 0)
     goto error;
 
@@ -113,7 +111,7 @@ error:
 }
 
 
-int uv_fs_poll_stop(uv_fs_poll_t* handle) {
+int uv_fs_poll_stop(uv_fs_poll_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct poll_ctx* ctx;
 
   if (!uv_is_active((uv_handle_t*)handle))
@@ -135,7 +133,7 @@ int uv_fs_poll_stop(uv_fs_poll_t* handle) {
 }
 
 
-int uv_fs_poll_getpath(uv_fs_poll_t* handle, char* buffer, size_t* size) {
+int uv_fs_poll_getpath(uv_fs_poll_t* handle, char* buffer, size_t* size) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct poll_ctx* ctx;
   size_t required_len;
 
@@ -234,7 +232,7 @@ out:
 }
 
 
-static void timer_close_cb(uv_handle_t* timer) {
+static void timer_close_cb(uv_handle_t* timer) UV_REQUIRES_HANDLE_LOOP(timer) {
   struct poll_ctx* ctx;
   struct poll_ctx* it;
   struct poll_ctx* last;

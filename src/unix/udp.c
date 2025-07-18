@@ -40,13 +40,13 @@
 # define IPV6_DROP_MEMBERSHIP IPV6_LEAVE_GROUP
 #endif
 
-static void uv__udp_run_completed(uv_udp_t* handle);
+static void uv__udp_run_completed(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents);
-static void uv__udp_recvmsg(uv_udp_t* handle);
-static void uv__udp_sendmsg(uv_udp_t* handle);
+static void uv__udp_recvmsg(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
+static void uv__udp_sendmsg(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 static int uv__udp_maybe_deferred_bind(uv_udp_t* handle,
                                        int domain,
-                                       unsigned int flags);
+                                       unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 static int uv__udp_sendmsg1(int fd,
                             const uv_buf_t* bufs,
                             unsigned int nbufs,
@@ -92,7 +92,7 @@ void uv__udp_finish_close(uv_udp_t* handle) {
 }
 
 
-static void uv__udp_run_completed(uv_udp_t* handle) {
+static void uv__udp_run_completed(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv_udp_send_t* req;
   struct uv__queue* q;
 
@@ -220,7 +220,7 @@ static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
 #endif  /* __linux__ || ____FreeBSD__ || __APPLE__ */
 }
 
-static void uv__udp_recvmsg(uv_udp_t* handle) {
+static void uv__udp_recvmsg(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct sockaddr_storage peer;
   struct msghdr h;
   ssize_t nread;
@@ -428,7 +428,7 @@ int uv__udp_bind(uv_udp_t* handle,
 
 static int uv__udp_maybe_deferred_bind(uv_udp_t* handle,
                                        int domain,
-                                       unsigned int flags) {
+                                       unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle) {
   union uv__sockaddr taddr;
   socklen_t addrlen;
 
@@ -1342,7 +1342,7 @@ exit:
 }
 
 
-static void uv__udp_sendmsg(uv_udp_t* handle) {
+static void uv__udp_sendmsg(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   static const int N = 20;
   struct sockaddr* addrs[N];
   unsigned int nbufs[N];

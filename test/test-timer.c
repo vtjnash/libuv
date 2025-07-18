@@ -243,7 +243,7 @@ TEST_IMPL(timer_order) {
 }
 
 
-static void zero_timeout_cb(uv_timer_t* handle) {
+static void zero_timeout_cb(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   ASSERT_OK(uv_timer_start(handle, zero_timeout_cb, 0, 0));
   uv_stop(handle->loop);
   zero_timeout_cb_calls++;
