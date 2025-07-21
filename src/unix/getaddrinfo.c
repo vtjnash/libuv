@@ -95,7 +95,7 @@ int uv__getaddrinfo_translate_error(int sys_err) {
 }
 
 
-static void uv__getaddrinfo_work(struct uv__work* w) {
+static void uv__getaddrinfo_work(struct uv__work* w) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_getaddrinfo_t* req;
   int err;
 

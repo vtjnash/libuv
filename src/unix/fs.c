@@ -95,7 +95,8 @@ UV_UNUSED(static struct timeval uv__fs_to_timeval(double time)) {
 static void uv__prepare_setattrlist_args(uv_fs_t* req,
                                          struct attrlist* attr_list,
                                          struct timespec (*times)[3],
-                                         unsigned int* size) {
+                                         unsigned int* size)
+UV_NO_THREAD_SAFETY_ANALYSIS {
   memset(attr_list, 0, sizeof(*attr_list));
   memset(times, 0, sizeof(*times));
 
@@ -238,7 +239,7 @@ extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
   while (0)
 
 
-static int uv__fs_close(int fd) {
+static int uv__fs_close(int fd) UV_NO_THREAD_SAFETY_ANALYSIS {
   int rc;
 
   rc = uv__close_nocancel(fd);
@@ -250,7 +251,7 @@ static int uv__fs_close(int fd) {
 }
 
 
-static ssize_t uv__fs_fsync(uv_fs_t* req) {
+static ssize_t uv__fs_fsync(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
 #if defined(__APPLE__)
   /* Apple's fdatasync and fsync explicitly do NOT flush the drive write cache
    * to the drive platters. This is in contrast to Linux's fdatasync and fsync
@@ -274,7 +275,7 @@ static ssize_t uv__fs_fsync(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_fdatasync(uv_fs_t* req) {
+static ssize_t uv__fs_fdatasync(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
 #if defined(__linux__) || defined(__sun) || defined(__NetBSD__)
   return fdatasync(req->file);
 #elif defined(__APPLE__)
@@ -286,7 +287,7 @@ static ssize_t uv__fs_fdatasync(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_futime(uv_fs_t* req) {
+static ssize_t uv__fs_futime(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
 #if defined(__linux__)                                                        \
     || defined(_AIX71)                                                        \
     || defined(__HAIKU__)                                                     \
@@ -331,7 +332,7 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_mkdtemp(uv_fs_t* req) {
+static ssize_t uv__fs_mkdtemp(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   return mkdtemp((char*) req->path) ? 0 : -1;
 }
 
@@ -355,7 +356,7 @@ static void uv__mkostemp_initonce(void) {
 }
 
 
-static int uv__fs_mkstemp(uv_fs_t* req) {
+static int uv__fs_mkstemp(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   static uv_once_t once = UV_ONCE_INIT;
   int r;
 #ifdef O_CLOEXEC
@@ -439,7 +440,7 @@ clobber:
 }
 
 
-static ssize_t uv__fs_open(uv_fs_t* req) {
+static ssize_t uv__fs_open(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
 #ifdef O_CLOEXEC
   return open(req->path, req->flags | O_CLOEXEC, req->mode);
 #else  /* O_CLOEXEC */
@@ -585,7 +586,7 @@ static ssize_t uv__pwritev(int fd,
 }
 
 
-static ssize_t uv__fs_read(uv_fs_t* req) {
+static ssize_t uv__fs_read(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   const struct iovec* bufs;
   unsigned int iovmax;
   size_t nbufs;
@@ -639,17 +640,17 @@ static ssize_t uv__fs_read(uv_fs_t* req) {
 }
 
 
-static int uv__fs_scandir_filter(const uv__dirent_t* dent) {
+static int uv__fs_scandir_filter(const uv__dirent_t* dent) UV_NO_THREAD_SAFETY_ANALYSIS {
   return strcmp(dent->d_name, ".") != 0 && strcmp(dent->d_name, "..") != 0;
 }
 
 
-static int uv__fs_scandir_sort(const uv__dirent_t** a, const uv__dirent_t** b) {
+static int uv__fs_scandir_sort(const uv__dirent_t** a, const uv__dirent_t** b) UV_NO_THREAD_SAFETY_ANALYSIS {
   return strcmp((*a)->d_name, (*b)->d_name);
 }
 
 
-static ssize_t uv__fs_scandir(uv_fs_t* req) {
+static ssize_t uv__fs_scandir(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv__dirent_t** dents;
   int n;
 
@@ -674,7 +675,7 @@ static ssize_t uv__fs_scandir(uv_fs_t* req) {
   return n;
 }
 
-static int uv__fs_opendir(uv_fs_t* req) {
+static int uv__fs_opendir(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_dir_t* dir;
 
   dir = uv__malloc(sizeof(*dir));
@@ -694,7 +695,7 @@ error:
   return -1;
 }
 
-static int uv__fs_readdir(uv_fs_t* req) {
+static int uv__fs_readdir(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_dir_t* dir;
   uv_dirent_t* dirent;
   struct dirent* res;
@@ -740,7 +741,7 @@ error:
   return -1;
 }
 
-static int uv__fs_closedir(uv_fs_t* req) {
+static int uv__fs_closedir(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_dir_t* dir;
 
   dir = req->ptr;
@@ -755,7 +756,7 @@ static int uv__fs_closedir(uv_fs_t* req) {
   return 0;
 }
 
-static int uv__fs_statfs(uv_fs_t* req) {
+static int uv__fs_statfs(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_statfs_t* stat_fs;
 #if defined(__sun)      || \
     defined(__MVS__)    || \
@@ -798,7 +799,7 @@ static int uv__fs_statfs(uv_fs_t* req) {
   return 0;
 }
 
-static ssize_t uv__fs_pathmax_size(const char* path) {
+static ssize_t uv__fs_pathmax_size(const char* path) UV_NO_THREAD_SAFETY_ANALYSIS {
   ssize_t pathmax;
 
   pathmax = pathconf(path, _PC_PATH_MAX);
@@ -809,7 +810,7 @@ static ssize_t uv__fs_pathmax_size(const char* path) {
   return pathmax;
 }
 
-static ssize_t uv__fs_readlink(uv_fs_t* req) {
+static ssize_t uv__fs_readlink(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   ssize_t maxlen;
   ssize_t len;
   char* buf;
@@ -868,7 +869,7 @@ static ssize_t uv__fs_readlink(uv_fs_t* req) {
   return 0;
 }
 
-static ssize_t uv__fs_realpath(uv_fs_t* req) {
+static ssize_t uv__fs_realpath(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   char* buf;
   char* tmp;
 
@@ -906,7 +907,7 @@ static ssize_t uv__fs_realpath(uv_fs_t* req) {
   return 0;
 }
 
-static ssize_t uv__fs_sendfile_emul(uv_fs_t* req) {
+static ssize_t uv__fs_sendfile_emul(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   struct pollfd pfd;
   int use_pread;
   off_t offset;
@@ -1056,7 +1057,7 @@ static int uv__is_cifs_or_smb(int fd) {
 
 
 static ssize_t uv__fs_try_copy_file_range(int in_fd, off_t* off,
-                                          int out_fd, size_t len) {
+                                          int out_fd, size_t len) UV_NO_THREAD_SAFETY_ANALYSIS {
   static _Atomic int no_copy_file_range_support;
   ssize_t r;
 
@@ -1104,7 +1105,7 @@ static ssize_t uv__fs_try_copy_file_range(int in_fd, off_t* off,
 #endif  /* __linux__ */
 
 
-static ssize_t uv__fs_sendfile(uv_fs_t* req) {
+static ssize_t uv__fs_sendfile(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   int in_fd;
   int out_fd;
 
@@ -1216,7 +1217,7 @@ static ssize_t uv__fs_sendfile(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_utime(uv_fs_t* req) {
+static ssize_t uv__fs_utime(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
 #if defined(__linux__)                                                         \
     || defined(_AIX71)                                                         \
     || defined(__sun)                                                          \
@@ -1262,7 +1263,7 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_lutime(uv_fs_t* req) {
+static ssize_t uv__fs_lutime(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
 #if defined(__linux__)            ||                                           \
     defined(_AIX71)               ||                                           \
     defined(__sun)                ||                                           \
@@ -1288,7 +1289,7 @@ static ssize_t uv__fs_lutime(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_write(uv_fs_t* req) {
+static ssize_t uv__fs_write(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   const struct iovec* bufs;
   size_t nbufs;
   ssize_t r;
@@ -1317,7 +1318,7 @@ static ssize_t uv__fs_write(uv_fs_t* req) {
 }
 
 
-static ssize_t uv__fs_copyfile(uv_fs_t* req) {
+static ssize_t uv__fs_copyfile(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_fs_t fs_req;
   uv_os_fd_t srcfd;
   uv_os_fd_t dstfd;
@@ -1609,7 +1610,7 @@ static int uv__fs_statx(int fd,
                         const char* path,
                         int is_fstat,
                         int is_lstat,
-                        uv_stat_t* buf) {
+                        uv_stat_t* buf) UV_NO_THREAD_SAFETY_ANALYSIS {
   STATIC_ASSERT(UV_ENOSYS != -1);
 #ifdef __linux__
   static _Atomic int no_statx;
@@ -1666,7 +1667,7 @@ static int uv__fs_statx(int fd,
 }
 
 
-static int uv__fs_stat(const char *path, uv_stat_t *buf) {
+static int uv__fs_stat(const char *path, uv_stat_t *buf) UV_NO_THREAD_SAFETY_ANALYSIS {
   struct stat pbuf;
   int ret;
 
@@ -1682,7 +1683,7 @@ static int uv__fs_stat(const char *path, uv_stat_t *buf) {
 }
 
 
-static int uv__fs_lstat(const char *path, uv_stat_t *buf) {
+static int uv__fs_lstat(const char *path, uv_stat_t *buf) UV_NO_THREAD_SAFETY_ANALYSIS {
   struct stat pbuf;
   int ret;
 
@@ -1698,7 +1699,7 @@ static int uv__fs_lstat(const char *path, uv_stat_t *buf) {
 }
 
 
-static int uv__fs_fstat(int fd, uv_stat_t *buf) {
+static int uv__fs_fstat(int fd, uv_stat_t *buf) UV_NO_THREAD_SAFETY_ANALYSIS {
   struct stat pbuf;
   int ret;
 
@@ -1713,7 +1714,7 @@ static int uv__fs_fstat(int fd, uv_stat_t *buf) {
   return ret;
 }
 
-static size_t uv__fs_buf_offset(uv_buf_t* bufs, size_t size) {
+static size_t uv__fs_buf_offset(uv_buf_t* bufs, size_t size) UV_NO_THREAD_SAFETY_ANALYSIS {
   size_t offset;
   /* Figure out which bufs are done */
   for (offset = 0; size > 0 && bufs[offset].len <= size; ++offset)
@@ -1727,7 +1728,7 @@ static size_t uv__fs_buf_offset(uv_buf_t* bufs, size_t size) {
   return offset;
 }
 
-static ssize_t uv__fs_write_all(uv_fs_t* req) {
+static ssize_t uv__fs_write_all(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   unsigned int iovmax;
   unsigned int nbufs;
   uv_buf_t* bufs;
@@ -1773,7 +1774,7 @@ static ssize_t uv__fs_write_all(uv_fs_t* req) {
 }
 
 
-static void uv__fs_work(struct uv__work* w) {
+static void uv__fs_work(struct uv__work* w) UV_NO_THREAD_SAFETY_ANALYSIS {
   int retry_on_eintr;
   uv_fs_t* req;
   ssize_t r;

@@ -422,7 +422,7 @@ UV_REQUIRES_SHARED(&uv_init_guard_)
 }
 
 
-int uv_udp_connect(uv_udp_t* handle, const struct sockaddr* addr) {
+int uv_udp_connect(uv_udp_t* handle, const struct sockaddr* addr) UV_REQUIRES_HANDLE_LOOP(handle) {
   unsigned int addrlen;
 
   if (handle->type != UV_UDP)
@@ -464,7 +464,7 @@ int uv__udp_is_connected(uv_udp_t* handle) {
 }
 
 
-int uv__udp_check_before_send(uv_udp_t* handle, const struct sockaddr* addr) {
+int uv__udp_check_before_send(uv_udp_t* handle, const struct sockaddr* addr) UV_REQUIRES_HANDLE_LOOP(handle) {
   unsigned int addrlen;
 
   if (handle->type != UV_UDP)
@@ -671,7 +671,7 @@ int uv_send_buffer_size(uv_handle_t* handle, int *value) {
   return uv__socket_sockopt(handle, SO_SNDBUF, value);
 }
 
-int uv_fs_event_getpath(uv_fs_event_t* handle, char* buffer, size_t* size) {
+int uv_fs_event_getpath(uv_fs_event_t* handle, char* buffer, size_t* size) UV_REQUIRES_HANDLE_LOOP(handle) {
   size_t required_len;
 
   if (buffer == NULL || size == NULL || *size == 0)
@@ -699,7 +699,7 @@ int uv_fs_event_getpath(uv_fs_event_t* handle, char* buffer, size_t* size) {
  * the unix implementation (nbufs is not directly inside req but is
  * contained in a nested union/struct) so this function locates it.
 */
-static unsigned int* uv__get_nbufs(uv_fs_t* req) {
+static unsigned int* uv__get_nbufs(uv_fs_t* req) UV_REQUIRES_REQ_LOOP(req) {
 #ifdef _WIN32
   return &req->fs.info.nbufs;
 #else
@@ -741,7 +741,7 @@ void uv__fs_scandir_cleanup(uv_fs_t* req) {
 }
 
 
-int uv_fs_scandir_next(uv_fs_t* req, uv_dirent_t* ent) {
+int uv_fs_scandir_next(uv_fs_t* req, uv_dirent_t* ent) UV_REQUIRES_REQ_LOOP(req) {
   uv__dirent_t** dents;
   uv__dirent_t* dent;
   unsigned int* nbufs;

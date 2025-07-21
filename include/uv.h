@@ -166,6 +166,7 @@ extern struct single_threaded_token* owner_thread;
 #define UV_ACQUIRE_HANDLE_LOOP_ANY(handle) //UV_ACQUIRE(&owner_thread)
 #define UV_RELEASE_HANDLE_LOOP_ANY(handle) //UV_RELEASE(&owner_thread)
 #define UV_LOOP_GUARDED_BY(x) UV_GUARDED_BY(x)
+#define UV_HANDLE_GUARDED_BY(handle) UV_GUARDED_BY(&owner_thread)
 #else
 #define UV_REQUIRES_LOOP(loop)
 #define UV_REQUIRES_HANDLE_LOOP(handle)
@@ -175,6 +176,7 @@ extern struct single_threaded_token* owner_thread;
 #define UV_ACQUIRE_HANDLE_LOOP_ANY(handle)
 #define UV_RELEASE_HANDLE_LOOP_ANY(handle)
 #define UV_LOOP_GUARDED_BY(x)
+#define UV_HANDLE_GUARDED_BY(handle)
 #endif
 #define UV_ACQUIRE_LOOP(loop) //UV_ACQUIRE(&owner_thread)
 /* For FS operations that can be sync (loop=NULL) or async (loop!=NULL) */

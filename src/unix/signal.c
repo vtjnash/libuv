@@ -60,9 +60,12 @@ static struct uv__signal_tree_s uv__signal_tree UV_GUARDED_BY(&uv__signal_global
     RB_INITIALIZER(uv__signal_tree);
 static int uv__signal_lock_pipefd[2] UV_GUARDED_BY(&uv__signal_global_init_guard) = { -1, -1 };
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
 RB_GENERATE_STATIC(uv__signal_tree_s,
                    uv_signal_s, tree_entry,
                    uv__signal_compare)
+#pragma clang diagnostic pop
 
 static void uv__signal_global_reinit(void)
 UV_REQUIRES(&uv__signal_global_init_guard);
@@ -168,7 +171,7 @@ static void uv__signal_unlock_and_unblock(sigset_t* saved_sigmask) UV_REQUIRES_S
 }
 
 
-static uv_signal_t* uv__signal_first_handle(int signum) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
+static uv_signal_t* uv__signal_first_handle(int signum) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) UV_NO_THREAD_SAFETY_ANALYSIS {
   /* This function must be called with the signal lock held. */
   uv_signal_t lookup;
   uv_signal_t* handle;
@@ -311,7 +314,7 @@ int uv__signal_loop_fork(uv_loop_t* loop) {
 }
 
 
-void uv__signal_loop_cleanup(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_RELEASE_SHARED(&uv__signal_global_init_guard) {
+void uv__signal_loop_cleanup(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_REQUIRES_SHARED(&uv__signal_global_init_guard) {
   struct uv__queue* q;
 
   /* Stop all the signal watchers that are still attached to this loop. This
@@ -504,7 +507,7 @@ static void uv__signal_event(uv_loop_t* loop,
 }
 
 
-static int uv__signal_compare(uv_signal_t* w1, uv_signal_t* w2) {
+static int uv__signal_compare(uv_signal_t* w1, uv_signal_t* w2) UV_NO_THREAD_SAFETY_ANALYSIS {
   int f1;
   int f2;
   /* Compare signums first so all watchers with the same signnum end up

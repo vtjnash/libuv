@@ -31,8 +31,8 @@
 #endif
 
 #define UV_IO_PRIVATE_PLATFORM_FIELDS                                         \
-  int rcount;                                                                 \
-  int wcount;                                                                 \
+  int rcount UV_HANDLE_GUARDED_BY(handle);                                   \
+  int wcount UV_HANDLE_GUARDED_BY(handle);                                   \
 
 #define UV_PLATFORM_LOOP_FIELDS                                               \
   uv_thread_t cf_thread;                                                      \
@@ -43,10 +43,10 @@
   struct uv__queue cf_signals UV_GUARDED_BY(&cf_mutex);                       \
 
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
-  uv__io_t event_watcher;                                                     \
+  uv__io_t event_watcher UV_HANDLE_GUARDED_BY(handle);                        \
   char* realpath;                                                             \
-  int realpath_len;                                                           \
-  int cf_flags;                                                               \
+  int realpath_len UV_HANDLE_GUARDED_BY(handle);                              \
+  int cf_flags UV_HANDLE_GUARDED_BY(handle);                                  \
   uv_async_t* cf_cb;                                                          \
   uv_mutex_t cf_mutex;                                                        \
   struct uv__queue cf_events UV_GUARDED_BY(&cf_mutex);                        \

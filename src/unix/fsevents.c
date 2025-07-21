@@ -108,7 +108,7 @@ static void* uv__cf_loop_runner(void* arg);
 static int uv__cf_loop_signal(uv_loop_t* loop,
                               uv_fs_event_t* handle,
                               uv__cf_loop_signal_type_t type) UV_EXCLUDES(&loop->cf_mutex);
-static void uv__fsevents_cb(uv_async_t* cb) UV_EXCLUDES(&((uv_fs_event_t*)cb->data)->cf_mutex);
+static void uv__fsevents_cb(uv_async_t* cb) UV_REQUIRES_HANDLE_LOOP((uv_fs_event_t*)cb->data) UV_EXCLUDES(&((uv_fs_event_t*)cb->data)->cf_mutex);
 static void uv__fsevents_push_event(uv_fs_event_t* handle,
                                     struct uv__queue* events,
                                     int err) UV_EXCLUDES(&handle->cf_mutex);
@@ -223,7 +223,7 @@ static void uv__fsevents_event_cb(const FSEventStreamRef streamRef,
                                   void* eventPaths,
                                   const FSEventStreamEventFlags eventFlags[],
                                   const FSEventStreamEventId eventIds[])
-UV_EXCLUDES(&owner_thread) {
+UV_NO_THREAD_SAFETY_ANALYSIS {
   size_t i;
   int len;
   char** paths;

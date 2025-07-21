@@ -53,7 +53,7 @@ static int uv__udp_sendmsg1(int fd,
                             const struct sockaddr* addr);
 
 
-void uv__udp_close(uv_udp_t* handle) {
+void uv__udp_close(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv__io_close(handle->loop, &handle->io_watcher);
   uv__handle_stop(handle);
 
@@ -64,7 +64,7 @@ void uv__udp_close(uv_udp_t* handle) {
 }
 
 
-void uv__udp_finish_close(uv_udp_t* handle) {
+void uv__udp_finish_close(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv_udp_send_t* req;
   struct uv__queue* q;
 
@@ -151,7 +151,7 @@ static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) UV_RE
   }
 }
 
-static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
+static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) UV_REQUIRES_HANDLE_LOOP(handle) {
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
   struct sockaddr_in6 peers[20];
   struct iovec iov[ARRAY_SIZE(peers)];
@@ -516,7 +516,7 @@ int uv__udp_connect(uv_udp_t* handle,
  *   if(addr->sa_len < sizeof(struct sockaddr)) return EINVAL;
  *   if (addr->sa_family == AF_UNSPEC) sodisconnect(so);
  */
-int uv__udp_disconnect(uv_udp_t* handle) {
+int uv__udp_disconnect(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
     int r;
 #if defined(__MVS__)
     struct sockaddr_storage addr;
@@ -658,7 +658,8 @@ int uv__udp_try_send(uv_udp_t* handle,
 static int uv__udp_set_membership4(uv_udp_t* handle,
                                    const struct sockaddr_in* multicast_addr,
                                    const char* interface_addr,
-                                   uv_membership membership) {
+                                   uv_membership membership)
+UV_REQUIRES_HANDLE_LOOP(handle) {
   struct ip_mreq mreq;
   int optname;
   int err;
@@ -705,7 +706,7 @@ static int uv__udp_set_membership4(uv_udp_t* handle,
 static int uv__udp_set_membership6(uv_udp_t* handle,
                                    const struct sockaddr_in6* multicast_addr,
                                    const char* interface_addr,
-                                   uv_membership membership) {
+                                   uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle) {
   int optname;
   struct ipv6_mreq mreq;
   struct sockaddr_in6 addr6;
@@ -881,7 +882,7 @@ int uv_udp_using_recvmmsg(const uv_udp_t* handle) {
 }
 
 
-int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock) {
+int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock) UV_REQUIRES_HANDLE_LOOP(handle) {
   int err;
 
   /* Check for already active socket. */
@@ -910,7 +911,7 @@ int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock) {
 int uv_udp_set_membership(uv_udp_t* handle,
                           const char* multicast_addr,
                           const char* interface_addr,
-                          uv_membership membership) {
+                          uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle) {
   int err;
   struct sockaddr_in addr4;
   struct sockaddr_in6 addr6;
@@ -935,7 +936,7 @@ int uv_udp_set_source_membership(uv_udp_t* handle,
                                  const char* multicast_addr,
                                  const char* interface_addr,
                                  const char* source_addr,
-                                 uv_membership membership) {
+                                 uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle) {
 #if !defined(__OpenBSD__) &&                                        \
     !defined(__NetBSD__) &&                                         \
     !defined(__ANDROID__) &&                                        \
@@ -979,7 +980,7 @@ static int uv__setsockopt(uv_udp_t* handle,
                          int option4,
                          int option6,
                          const void* val,
-                         socklen_t size) {
+                         socklen_t size) UV_REQUIRES_HANDLE_LOOP(handle) {
   int r;
 
   if (handle->flags & UV_HANDLE_IPV6)
@@ -1003,7 +1004,7 @@ static int uv__setsockopt(uv_udp_t* handle,
 static int uv__setsockopt_maybe_char(uv_udp_t* handle,
                                      int option4,
                                      int option6,
-                                     int val) {
+                                     int val) UV_REQUIRES_HANDLE_LOOP(handle) {
 #if defined(__sun) || defined(_AIX) || defined(__MVS__)
   char arg = val;
 #elif defined(__OpenBSD__)
@@ -1019,7 +1020,7 @@ static int uv__setsockopt_maybe_char(uv_udp_t* handle,
 }
 
 
-int uv_udp_set_broadcast(uv_udp_t* handle, int on) {
+int uv_udp_set_broadcast(uv_udp_t* handle, int on) UV_REQUIRES_HANDLE_LOOP(handle) {
   if (setsockopt(handle->io_watcher.fd,
                  SOL_SOCKET,
                  SO_BROADCAST,
@@ -1032,7 +1033,7 @@ int uv_udp_set_broadcast(uv_udp_t* handle, int on) {
 }
 
 
-int uv_udp_set_ttl(uv_udp_t* handle, int ttl) {
+int uv_udp_set_ttl(uv_udp_t* handle, int ttl) UV_REQUIRES_HANDLE_LOOP(handle) {
   if (ttl < 1 || ttl > 255)
     return UV_EINVAL;
 
@@ -1069,7 +1070,7 @@ int uv_udp_set_ttl(uv_udp_t* handle, int ttl) {
 }
 
 
-int uv_udp_set_multicast_ttl(uv_udp_t* handle, int ttl) {
+int uv_udp_set_multicast_ttl(uv_udp_t* handle, int ttl) UV_REQUIRES_HANDLE_LOOP(handle) {
 /*
  * On Solaris and derivatives such as SmartOS, the length of socket options
  * is sizeof(int) for IPV6_MULTICAST_HOPS and sizeof(char) for
@@ -1094,7 +1095,7 @@ int uv_udp_set_multicast_ttl(uv_udp_t* handle, int ttl) {
 }
 
 
-int uv_udp_set_multicast_loop(uv_udp_t* handle, int on) {
+int uv_udp_set_multicast_loop(uv_udp_t* handle, int on) UV_REQUIRES_HANDLE_LOOP(handle) {
 /*
  * On Solaris and derivatives such as SmartOS, the length of socket options
  * is sizeof(int) for IPV6_MULTICAST_LOOP and sizeof(char) for
@@ -1118,7 +1119,7 @@ int uv_udp_set_multicast_loop(uv_udp_t* handle, int on) {
                                    on);
 }
 
-int uv_udp_set_multicast_interface(uv_udp_t* handle, const char* interface_addr) {
+int uv_udp_set_multicast_interface(uv_udp_t* handle, const char* interface_addr) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct sockaddr_storage addr_st;
   struct sockaddr_in* addr4;
   struct sockaddr_in6* addr6;
@@ -1190,7 +1191,7 @@ int uv_udp_getsockname(const uv_udp_t* handle,
 
 int uv__udp_recv_start(uv_udp_t* handle,
                        uv_alloc_cb alloc_cb,
-                       uv_udp_recv_cb recv_cb) {
+                       uv_udp_recv_cb recv_cb) UV_REQUIRES_HANDLE_LOOP(handle) {
   int err;
 
   if (alloc_cb == NULL || recv_cb == NULL)
@@ -1213,7 +1214,7 @@ int uv__udp_recv_start(uv_udp_t* handle,
 }
 
 
-int uv__udp_recv_stop(uv_udp_t* handle) {
+int uv__udp_recv_stop(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv__io_stop(handle->loop, &handle->io_watcher, POLLIN);
 
   if (!uv__io_active(&handle->io_watcher, POLLOUT))

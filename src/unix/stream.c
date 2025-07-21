@@ -75,7 +75,7 @@ static void uv__write(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 static void uv__read(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop);
 static void uv__write_callbacks(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
-static size_t uv__write_req_size(uv_write_t* req);
+static size_t uv__write_req_size(uv_write_t* req) UV_REQUIRES_REQ_LOOP(req);
 static void uv__drain(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 
 
@@ -117,7 +117,7 @@ void uv__stream_init(uv_loop_t* loop,
 }
 
 
-static void uv__stream_osx_interrupt_select(uv_stream_t* stream) {
+static void uv__stream_osx_interrupt_select(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream) {
 #if defined(__APPLE__)
   /* Notify select() thread about state change */
   uv__stream_select_t* s;
@@ -143,7 +143,7 @@ static void uv__stream_osx_interrupt_select(uv_stream_t* stream) {
 
 
 #if defined(__APPLE__)
-static void uv__stream_osx_select(void* arg) UV_EXCLUDES(&owner_thread) {
+static void uv__stream_osx_select(void* arg) UV_EXCLUDES(&owner_thread) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_stream_t* stream;
   uv__stream_select_t* s;
   char buf[1024];
@@ -437,7 +437,7 @@ int uv__stream_open(uv_stream_t* stream, int fd, int flags) {
 }
 
 
-void uv__stream_flush_write_queue(uv_stream_t* stream, int error) {
+void uv__stream_flush_write_queue(uv_stream_t* stream, int error) UV_REQUIRES_HANDLE_LOOP(stream) {
   uv_write_t* req;
   struct uv__queue* q;
   while (!uv__queue_empty(&stream->write_queue)) {
@@ -667,7 +667,7 @@ static ssize_t uv__writev(int fd, struct iovec* vec, size_t n) {
 }
 
 
-static size_t uv__write_req_size(uv_write_t* req) {
+static size_t uv__write_req_size(uv_write_t* req) UV_REQUIRES_REQ_LOOP(req) {
   size_t size;
 
   assert(req->bufs != NULL);
@@ -687,7 +687,7 @@ static size_t uv__write_req_size(uv_write_t* req) {
  */
 static int uv__write_req_update(uv_stream_t* stream,
                                 uv_write_t* req,
-                                size_t n) {
+                                size_t n) UV_REQUIRES_HANDLE_LOOP(stream) UV_REQUIRES_REQ_LOOP(req) {
   uv_buf_t* buf;
   size_t len;
 
@@ -940,7 +940,7 @@ static void uv__stream_eof(uv_stream_t* stream, const uv_buf_t* buf) UV_REQUIRES
 }
 
 
-static int uv__stream_queue_fd(uv_stream_t* stream, int fd) {
+static int uv__stream_queue_fd(uv_stream_t* stream, int fd) UV_REQUIRES_HANDLE_LOOP(stream) {
   uv__stream_queued_fds_t* queued_fds;
   unsigned int queue_size;
 
@@ -979,7 +979,7 @@ static int uv__stream_queue_fd(uv_stream_t* stream, int fd) {
 }
 
 
-static int uv__stream_recv_cmsg(uv_stream_t* stream, struct msghdr* msg) {
+static int uv__stream_recv_cmsg(uv_stream_t* stream, struct msghdr* msg) UV_REQUIRES_HANDLE_LOOP(stream) {
   struct cmsghdr* cmsg;
   char* p;
   char* pe;

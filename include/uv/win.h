@@ -263,10 +263,10 @@ typedef struct {
   struct uv_req_s* next_req;
 
 #define UV_WRITE_PRIVATE_FIELDS \
-  int coalesced;                \
-  uv_buf_t write_buffer;        \
-  HANDLE event_handle;          \
-  HANDLE wait_handle;
+  int coalesced UV_HANDLE_GUARDED_BY(handle);                \
+  uv_buf_t write_buffer UV_HANDLE_GUARDED_BY(handle);        \
+  HANDLE event_handle UV_HANDLE_GUARDED_BY(handle);          \
+  HANDLE wait_handle UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_CONNECT_PRIVATE_FIELDS                                             \
   /* empty */
@@ -307,13 +307,13 @@ typedef struct {
   uv_connection_cb connection_cb;
 
 #define UV_STREAM_PRIVATE_FIELDS                                              \
-  unsigned int reqs_pending;                                                  \
-  int activecnt;                                                              \
-  uv_read_t read_req;                                                         \
+  unsigned int reqs_pending UV_HANDLE_GUARDED_BY(handle);                     \
+  int activecnt UV_HANDLE_GUARDED_BY(handle);                                 \
+  uv_read_t read_req UV_HANDLE_GUARDED_BY(handle);                            \
   union {                                                                     \
     struct { uv_stream_connection_fields } conn;                              \
     struct { uv_stream_server_fields     } serv;                              \
-  } stream;
+  } stream UV_HANDLE_GUARDED_BY(handle);
 
 #define uv_tcp_server_fields                                                  \
   uv_tcp_accept_t* accept_reqs;                                               \
@@ -327,24 +327,24 @@ typedef struct {
   LPFN_CONNECTEX func_connectex;
 
 #define UV_TCP_PRIVATE_FIELDS                                                 \
-  SOCKET socket;                                                              \
-  int delayed_error;                                                          \
+  SOCKET socket UV_HANDLE_GUARDED_BY(handle);                                 \
+  int delayed_error UV_HANDLE_GUARDED_BY(handle);                             \
   union {                                                                     \
     struct { uv_tcp_server_fields } serv;                                     \
     struct { uv_tcp_connection_fields } conn;                                 \
-  } tcp;
+  } tcp UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_UDP_PRIVATE_FIELDS                                                 \
-  SOCKET socket;                                                              \
-  unsigned int reqs_pending;                                                  \
-  int activecnt;                                                              \
-  uv_req_t recv_req;                                                          \
-  struct sockaddr_storage recv_from;                                          \
-  int recv_from_len;                                                          \
-  uv_udp_recv_cb recv_cb;                                                     \
-  uv_alloc_cb alloc_cb;                                                       \
-  LPFN_WSARECV func_wsarecv;                                                  \
-  LPFN_WSARECVFROM func_wsarecvfrom;
+  SOCKET socket UV_HANDLE_GUARDED_BY(handle);                                 \
+  unsigned int reqs_pending UV_HANDLE_GUARDED_BY(handle);                     \
+  int activecnt UV_HANDLE_GUARDED_BY(handle);                                 \
+  uv_req_t recv_req UV_HANDLE_GUARDED_BY(handle);                             \
+  struct sockaddr_storage recv_from UV_HANDLE_GUARDED_BY(handle);             \
+  int recv_from_len UV_HANDLE_GUARDED_BY(handle);                             \
+  uv_udp_recv_cb recv_cb UV_HANDLE_GUARDED_BY(handle);                        \
+  uv_alloc_cb alloc_cb UV_HANDLE_GUARDED_BY(handle);                          \
+  LPFN_WSARECV func_wsarecv UV_HANDLE_GUARDED_BY(handle);                     \
+  LPFN_WSARECVFROM func_wsarecvfrom UV_HANDLE_GUARDED_BY(handle);
 
 #define uv_pipe_server_fields                                                 \
   int pending_instances;                                                      \
@@ -364,17 +364,17 @@ typedef struct {
   volatile HANDLE readfile_thread_handle;
 
 #define UV_PIPE_PRIVATE_FIELDS                                                \
-  HANDLE handle;                                                              \
-  WCHAR* name;                                                                \
+  HANDLE handle UV_HANDLE_GUARDED_BY(handle);                                 \
+  WCHAR* name UV_HANDLE_GUARDED_BY(handle);                                   \
   union {                                                                     \
     struct { uv_pipe_server_fields } serv;                                    \
     struct { uv_pipe_connection_fields } conn;                                \
-  } pipe;
+  } pipe UV_HANDLE_GUARDED_BY(handle);
 
 /* TODO: put the parser states in a union - TTY handles are always half-duplex
  * so read-state can safely overlap write-state. */
 #define UV_TTY_PRIVATE_FIELDS                                                 \
-  HANDLE handle;                                                              \
+  HANDLE handle UV_HANDLE_GUARDED_BY(handle);                                 \
   union {                                                                     \
     struct {                                                                  \
       /* Used for readable TTY handles */                                     \
@@ -401,95 +401,95 @@ typedef struct {
       COORD saved_position;                                                   \
       WORD saved_attributes;                                                  \
     } wr;                                                                     \
-  } tty;
+  } tty UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_POLL_PRIVATE_FIELDS                                                \
-  SOCKET socket;                                                              \
+  SOCKET socket UV_HANDLE_GUARDED_BY(handle);                                 \
   /* Used in fast mode */                                                     \
-  SOCKET peer_socket;                                                         \
-  AFD_POLL_INFO afd_poll_info_1;                                              \
-  AFD_POLL_INFO afd_poll_info_2;                                              \
+  SOCKET peer_socket UV_HANDLE_GUARDED_BY(handle);                            \
+  AFD_POLL_INFO afd_poll_info_1 UV_HANDLE_GUARDED_BY(handle);                 \
+  AFD_POLL_INFO afd_poll_info_2 UV_HANDLE_GUARDED_BY(handle);                 \
   /* Used in fast and slow mode. */                                           \
-  uv_req_t poll_req_1;                                                        \
-  uv_req_t poll_req_2;                                                        \
-  unsigned char submitted_events_1;                                           \
-  unsigned char submitted_events_2;                                           \
-  unsigned char mask_events_1;                                                \
-  unsigned char mask_events_2;                                                \
-  unsigned char events;
+  uv_req_t poll_req_1 UV_HANDLE_GUARDED_BY(handle);                           \
+  uv_req_t poll_req_2 UV_HANDLE_GUARDED_BY(handle);                           \
+  unsigned char submitted_events_1 UV_HANDLE_GUARDED_BY(handle);              \
+  unsigned char submitted_events_2 UV_HANDLE_GUARDED_BY(handle);              \
+  unsigned char mask_events_1 UV_HANDLE_GUARDED_BY(handle);                   \
+  unsigned char mask_events_2 UV_HANDLE_GUARDED_BY(handle);                   \
+  unsigned char events UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_TIMER_PRIVATE_FIELDS                                               \
-  uv_timer_cb timer_cb;                                                       \
+  uv_timer_cb timer_cb UV_HANDLE_GUARDED_BY(handle);                          \
   union {                                                                     \
     void* heap[3];                                                            \
     struct uv__queue queue;                                                   \
-  } node;                                                                     \
-  uint64_t timeout;                                                           \
-  uint64_t repeat;                                                            \
-  uint64_t start_id;
+  } node UV_HANDLE_GUARDED_BY(handle);                                        \
+  uint64_t timeout UV_HANDLE_GUARDED_BY(handle);                              \
+  uint64_t repeat UV_HANDLE_GUARDED_BY(handle);                               \
+  uint64_t start_id UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_ASYNC_PRIVATE_FIELDS                                               \
-  struct uv__queue queue;                                                     \
-  uv_async_cb async_cb;                                                       \
-  LONG volatile async_sent;
+  struct uv__queue queue UV_HANDLE_GUARDED_BY(handle);                        \
+  uv_async_cb async_cb UV_HANDLE_GUARDED_BY(handle);                          \
+  LONG volatile async_sent UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_PREPARE_PRIVATE_FIELDS                                             \
-  struct uv__queue queue;                                                     \
-  uv_prepare_cb prepare_cb;
+  struct uv__queue queue UV_HANDLE_GUARDED_BY(handle);                       \
+  uv_prepare_cb prepare_cb UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_CHECK_PRIVATE_FIELDS                                               \
-  struct uv__queue queue;                                                     \
-  uv_check_cb check_cb;
+  struct uv__queue queue UV_HANDLE_GUARDED_BY(handle);                        \
+  uv_check_cb check_cb UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_IDLE_PRIVATE_FIELDS                                                \
-  struct uv__queue queue;                                                     \
-  uv_idle_cb idle_cb;
+  struct uv__queue queue UV_HANDLE_GUARDED_BY(handle);                       \
+  uv_idle_cb idle_cb UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_HANDLE_PRIVATE_FIELDS                                              \
-  uv_handle_t* endgame_next;                                                  \
-  unsigned int flags;
+  uv_handle_t* endgame_next UV_HANDLE_GUARDED_BY(handle);                     \
+  unsigned int flags UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_GETADDRINFO_PRIVATE_FIELDS                                         \
-  struct uv__work work_req;                                                   \
-  uv_getaddrinfo_cb getaddrinfo_cb;                                           \
-  void* alloc;                                                                \
-  WCHAR* node;                                                                \
-  WCHAR* service;                                                             \
+  struct uv__work work_req UV_HANDLE_GUARDED_BY(handle);                      \
+  uv_getaddrinfo_cb getaddrinfo_cb UV_HANDLE_GUARDED_BY(handle);              \
+  void* alloc UV_HANDLE_GUARDED_BY(handle);                                   \
+  WCHAR* node UV_HANDLE_GUARDED_BY(handle);                                   \
+  WCHAR* service UV_HANDLE_GUARDED_BY(handle);                                \
   /* The addrinfoW field is used to store a pointer to the hints, and    */   \
   /* later on to store the result of GetAddrInfoW. The final result will */   \
   /* be converted to struct addrinfo* and stored in the addrinfo field.  */   \
-  struct addrinfoW* addrinfow;                                                \
-  struct addrinfo* addrinfo;                                                  \
-  int retcode;
+  struct addrinfoW* addrinfow UV_HANDLE_GUARDED_BY(handle);                   \
+  struct addrinfo* addrinfo UV_HANDLE_GUARDED_BY(handle);                     \
+  int retcode UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_GETNAMEINFO_PRIVATE_FIELDS                                         \
-  struct uv__work work_req;                                                   \
-  uv_getnameinfo_cb getnameinfo_cb;                                           \
-  struct sockaddr_storage storage;                                            \
-  int flags;                                                                  \
-  char host[NI_MAXHOST];                                                      \
-  char service[NI_MAXSERV];                                                   \
-  int retcode;
+  struct uv__work work_req UV_HANDLE_GUARDED_BY(handle);                      \
+  uv_getnameinfo_cb getnameinfo_cb UV_HANDLE_GUARDED_BY(handle);              \
+  struct sockaddr_storage storage UV_HANDLE_GUARDED_BY(handle);               \
+  int flags UV_HANDLE_GUARDED_BY(handle);                                     \
+  char host[NI_MAXHOST] UV_HANDLE_GUARDED_BY(handle);                         \
+  char service[NI_MAXSERV] UV_HANDLE_GUARDED_BY(handle);                      \
+  int retcode UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_PROCESS_PRIVATE_FIELDS                                             \
   struct uv_process_exit_s {                                                  \
     UV_REQ_FIELDS                                                             \
-  } exit_req;                                                                 \
-  void* unused; /* TODO: retained for ABI compat; remove this in v2.x. */     \
-  int exit_signal;                                                            \
-  HANDLE wait_handle;                                                         \
-  HANDLE process_handle;                                                      \
-  volatile char exit_cb_pending;
+  } exit_req UV_HANDLE_GUARDED_BY(handle);                                    \
+  void* unused UV_HANDLE_GUARDED_BY(handle); /* TODO: retained for ABI compat; remove this in v2.x. */ \
+  int exit_signal UV_HANDLE_GUARDED_BY(handle);                               \
+  HANDLE wait_handle UV_HANDLE_GUARDED_BY(handle);                            \
+  HANDLE process_handle UV_HANDLE_GUARDED_BY(handle);                         \
+  volatile char exit_cb_pending UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_FS_PRIVATE_FIELDS                                                  \
-  struct uv__work work_req;                                                   \
-  int flags;                                                                  \
-  DWORD sys_errno_;                                                           \
+  struct uv__work work_req UV_HANDLE_GUARDED_BY(handle);                      \
+  int flags UV_HANDLE_GUARDED_BY(handle);                                     \
+  DWORD sys_errno_ UV_HANDLE_GUARDED_BY(handle);                              \
   union {                                                                     \
     /* TODO: remove me in 0.9. */                                             \
     WCHAR* pathw;                                                             \
     HANDLE hFile;                                                             \
-  } file;                                                                     \
+  } file UV_HANDLE_GUARDED_BY(handle);                                        \
   union {                                                                     \
     struct {                                                                  \
       int mode;                                                               \
@@ -506,27 +506,27 @@ typedef struct {
       double atime;                                                           \
       double mtime;                                                           \
     } time;                                                                   \
-  } fs;
+  } fs UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_WORK_PRIVATE_FIELDS                                                \
-  struct uv__work work_req;
+  struct uv__work work_req UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_FS_EVENT_PRIVATE_FIELDS                                            \
   struct uv_fs_event_req_s {                                                  \
     UV_REQ_FIELDS                                                             \
-  } req;                                                                      \
-  HANDLE dir_handle;                                                          \
-  int req_pending;                                                            \
-  uv_fs_event_cb cb;                                                          \
-  WCHAR* filew;                                                               \
-  WCHAR* short_filew;                                                         \
-  WCHAR* dirw;                                                                \
-  char* buffer;
+  } req UV_HANDLE_GUARDED_BY(handle);                                         \
+  HANDLE dir_handle UV_HANDLE_GUARDED_BY(handle);                             \
+  int req_pending UV_HANDLE_GUARDED_BY(handle);                               \
+  uv_fs_event_cb cb UV_HANDLE_GUARDED_BY(handle);                             \
+  WCHAR* filew UV_HANDLE_GUARDED_BY(handle);                                  \
+  WCHAR* short_filew UV_HANDLE_GUARDED_BY(handle);                            \
+  WCHAR* dirw UV_HANDLE_GUARDED_BY(handle);                                   \
+  char* buffer UV_HANDLE_GUARDED_BY(handle);
 
 #define UV_SIGNAL_PRIVATE_FIELDS                                              \
-  RB_ENTRY(uv_signal_s) tree_entry;                                           \
-  struct uv_req_s signal_req;                                                 \
-  unsigned long pending_signum;
+  RB_ENTRY(uv_signal_s) tree_entry UV_HANDLE_GUARDED_BY(handle);              \
+  struct uv_req_s signal_req UV_HANDLE_GUARDED_BY(handle);                    \
+  unsigned long pending_signum UV_HANDLE_GUARDED_BY(handle);
 
 #ifndef F_OK
 #define F_OK 0

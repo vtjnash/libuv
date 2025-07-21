@@ -28,7 +28,7 @@
 #include "internal.h"
 
 
-static void uv__getnameinfo_work(struct uv__work* w) {
+static void uv__getnameinfo_work(struct uv__work* w) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv_getnameinfo_t* req;
   int err;
   socklen_t salen;

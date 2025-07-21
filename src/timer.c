@@ -27,7 +27,8 @@
 
 
 static int timer_less_than(const struct heap_node* ha,
-                           const struct heap_node* hb) {
+                           const struct heap_node* hb)
+UV_NO_THREAD_SAFETY_ANALYSIS {
   const uv_timer_t* a;
   const uv_timer_t* b;
 

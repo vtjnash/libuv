@@ -23,11 +23,11 @@
 #define UV_BSD_H
 
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
-  uv__io_t event_watcher;                                                     \
+  uv__io_t event_watcher UV_HANDLE_GUARDED_BY(handle);                        \
 
 #define UV_IO_PRIVATE_PLATFORM_FIELDS                                         \
-  int rcount;                                                                 \
-  int wcount;                                                                 \
+  int rcount UV_HANDLE_GUARDED_BY(handle);                                   \
+  int wcount UV_HANDLE_GUARDED_BY(handle);                                   \
 
 #define UV_HAVE_KQUEUE 1
 
