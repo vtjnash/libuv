@@ -150,7 +150,7 @@ int uv__next_timeout(const uv_loop_t* loop) {
 }
 
 
-void uv__run_timers(uv_loop_t* loop) {
+void uv__run_timers(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   struct heap_node* heap_node;
   uv_timer_t* handle;
   struct uv__queue* queue_node;
@@ -183,6 +183,6 @@ void uv__run_timers(uv_loop_t* loop) {
 }
 
 
-void uv__timer_close(uv_timer_t* handle) {
+void uv__timer_close(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv_timer_stop(handle);
 }

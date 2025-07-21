@@ -136,9 +136,9 @@ enum {
   UV_HANDLE_REAP                        = 0x10000000
 };
 
-int uv__loop_configure(uv_loop_t* loop, uv_loop_option option, va_list ap);
+int uv__loop_configure(uv_loop_t* loop, uv_loop_option option, va_list ap) UV_REQUIRES_LOOP(loop);
 
-void uv__loop_close(uv_loop_t* loop);
+void uv__loop_close(uv_loop_t* loop) UV_NO_THREAD_SAFETY_ANALYSIS;
 
 int uv__read_start(uv_stream_t* stream,
                    uv_alloc_cb alloc_cb,
@@ -219,16 +219,16 @@ void uv__work_submit(uv_loop_t* loop,
                      struct uv__work *w,
                      enum uv__work_kind kind,
                      void (*work)(struct uv__work *w),
-                     void (*done)(struct uv__work *w, int status)) UV_EXCLUDES(&loop->owner_thread);
+                     void (*done)(struct uv__work *w, int status)) UV_REQUIRES_LOOP(loop);
 
-void uv__work_done(uv_async_t* handle) UV_EXCLUDES(&((uv_loop_t*)container_of(handle, uv_loop_t, wq_async))->wq_mutex, &((uv_loop_t*)container_of(handle, uv_loop_t, wq_async))->owner_thread);
+void uv__work_done(uv_async_t* handle) UV_REQUIRES_LOOP(container_of(handle, uv_loop_t, wq_async)) UV_EXCLUDES(&((uv_loop_t*)container_of(handle, uv_loop_t, wq_async))->wq_mutex);
 
 size_t uv__count_bufs(const uv_buf_t bufs[], unsigned int nbufs);
 
 int uv__socket_sockopt(uv_handle_t* handle, int optname, int* value) UV_REQUIRES_HANDLE_LOOP(handle);
 
-void uv__fs_scandir_cleanup(uv_fs_t* req);
-void uv__fs_readdir_cleanup(uv_fs_t* req);
+void uv__fs_scandir_cleanup(uv_fs_t* req) UV_REQUIRES_REQ_LOOP(req);
+void uv__fs_readdir_cleanup(uv_fs_t* req) UV_REQUIRES_REQ_LOOP(req);
 uv_dirent_type_t uv__fs_get_dirent_type(uv__dirent_t* dent);
 
 void uv__process_title_cleanup(void);
@@ -396,8 +396,8 @@ void uv__prepare_close(uv_prepare_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 void uv__check_close(uv_check_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* Timer prototypes */
-void uv__run_timers(uv_loop_t* loop);
-int uv__next_timeout(const uv_loop_t* loop);
+void uv__run_timers(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+int uv__next_timeout(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 void uv__timer_close(uv_timer_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 /* Metrics prototypes */
@@ -411,8 +411,8 @@ struct uv__loop_metrics_s {
   uv_mutex_t lock;
 };
 
-void uv__metrics_update_idle_time(uv_loop_t* loop);
-void uv__metrics_set_provider_entry_time(uv_loop_t* loop);
+void uv__metrics_update_idle_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
+void uv__metrics_set_provider_entry_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 #ifdef __linux__
 struct uv__iou {

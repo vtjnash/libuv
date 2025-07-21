@@ -23,7 +23,7 @@
 #define UV_AIX_H
 
 #define UV_PLATFORM_LOOP_FIELDS                                               \
-  int fs_fd;                                                                  \
+  int fs_fd UV_LOOP_GUARDED_BY(&owner_thread);                               \
 
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
   uv__io_t event_watcher;                                                     \

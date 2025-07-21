@@ -203,36 +203,36 @@ typedef struct {
 
 #define UV_LOOP_PRIVATE_FIELDS                                                \
     /* The loop's I/O completion port */                                      \
-  HANDLE iocp;                                                                \
+  HANDLE iocp UV_LOOP_GUARDED_BY(&owner_thread);                             \
   /* The current time according to the event loop. in msecs. */               \
-  uint64_t time;                                                              \
+  uint64_t time UV_LOOP_GUARDED_BY(&owner_thread);                           \
   /* Tail of a single-linked circular queue of pending reqs. If the queue */  \
   /* is empty, tail_ is NULL. If there is only one item, */                   \
   /* tail_->next_req == tail_ */                                              \
-  uv_req_t* pending_reqs_tail;                                                \
+  uv_req_t* pending_reqs_tail UV_LOOP_GUARDED_BY(&owner_thread);             \
   /* Head of a single-linked list of closed handles */                        \
-  uv_handle_t* endgame_handles;                                               \
+  uv_handle_t* endgame_handles UV_LOOP_GUARDED_BY(&owner_thread);            \
   /* Timers */                                                                \
   struct {                                                                    \
     void* min;                                                                \
     unsigned int nelts;                                                       \
-  } timer_heap;                                                               \
-  uint64_t timer_counter;                                                     \
+  } timer_heap UV_LOOP_GUARDED_BY(&owner_thread);                            \
+  uint64_t timer_counter UV_LOOP_GUARDED_BY(&owner_thread);                  \
   /* Lists of active loop (prepare / check / idle) watchers */                \
-  struct uv__queue prepare_handles;                                           \
-  struct uv__queue check_handles;                                             \
-  struct uv__queue idle_handles;                                              \
+  struct uv__queue prepare_handles UV_LOOP_GUARDED_BY(&owner_thread);        \
+  struct uv__queue check_handles UV_LOOP_GUARDED_BY(&owner_thread);          \
+  struct uv__queue idle_handles UV_LOOP_GUARDED_BY(&owner_thread);           \
   /* This handle holds the peer sockets for the fast variant of uv_poll_t */  \
-  SOCKET poll_peer_sockets[UV_MSAFD_PROVIDER_COUNT];                          \
+  SOCKET poll_peer_sockets[UV_MSAFD_PROVIDER_COUNT] UV_LOOP_GUARDED_BY(&owner_thread); \
   /* Threadpool */                                                            \
   struct uv__queue wq UV_GUARDED_BY(&wq_mutex);                              \
   uv_mutex_t wq_mutex;                                                        \
   uv_async_t wq_async;                                                        \
   /* Async handle */                                                          \
-  struct uv_req_s async_req;                                                  \
-  struct uv__queue async_handles;                                             \
+  struct uv_req_s async_req UV_LOOP_GUARDED_BY(&owner_thread);               \
+  struct uv__queue async_handles UV_LOOP_GUARDED_BY(&owner_thread);          \
   /* Global queue of loops */                                                 \
-  struct uv__queue loops_queue;
+  struct uv__queue loops_queue UV_LOOP_GUARDED_BY(&owner_thread);
 
 #define UV_REQ_TYPE_PRIVATE                                                   \
   /* TODO: remove the req suffix */                                           \

@@ -28,6 +28,9 @@
 #include <stddef.h> /* NULL */
 #include <stdio.h> /* FILE, printf */
 #include <stdlib.h> /* malloc */
+
+/* Global thread safety token for analysis */
+struct single_threaded_token* owner_thread;
 #include <string.h> /* memset */
 
 #if defined(_WIN32)
@@ -559,7 +562,7 @@ int uv_udp_recv_stop(uv_udp_t* handle) {
 }
 
 
-void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg) {
+void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg) UV_REQUIRES_LOOP(loop) {
   struct uv__queue queue;
   struct uv__queue* q;
   uv_handle_t* h;
@@ -578,7 +581,7 @@ void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg) {
 }
 
 
-static void uv__print_handles(uv_loop_t* loop, int only_active, void* stream) {
+static void uv__print_handles(uv_loop_t* loop, int only_active, void* stream) UV_REQUIRES_LOOP(loop) {
   const char* type;
   struct uv__queue* q;
   uv_handle_t* h;
@@ -613,12 +616,12 @@ static void uv__print_handles(uv_loop_t* loop, int only_active, void* stream) {
 }
 
 
-void uv_print_all_handles(uv_loop_t* loop, void* stream) {
+void uv_print_all_handles(uv_loop_t* loop, void* stream) UV_REQUIRES_LOOP(loop) {
   uv__print_handles(loop, 0, stream);
 }
 
 
-void uv_print_active_handles(uv_loop_t* loop, void* stream) {
+void uv_print_active_handles(uv_loop_t* loop, void* stream) UV_REQUIRES_LOOP(loop) {
   uv__print_handles(loop, 1, stream);
 }
 
@@ -908,7 +911,7 @@ int uv_loop_close(uv_loop_t* loop) {
 }
 
 
-void uv_loop_delete(uv_loop_t* loop) {
+void uv_loop_delete(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   uv_loop_t* default_loop;
   int err;
 
@@ -924,7 +927,7 @@ void uv_loop_delete(uv_loop_t* loop) {
 
 int uv_read_start(uv_stream_t* stream,
                   uv_alloc_cb alloc_cb,
-                  uv_read_cb read_cb) {
+                  uv_read_cb read_cb) UV_REQUIRES_HANDLE_LOOP(stream) {
   if (stream == NULL || alloc_cb == NULL || read_cb == NULL)
     return UV_EINVAL;
 
@@ -991,7 +994,7 @@ void uv_library_shutdown(void) {
 }
 
 
-void uv__metrics_update_idle_time(uv_loop_t* loop) {
+void uv__metrics_update_idle_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   uv__loop_metrics_t* loop_metrics;
   uint64_t entry_time;
   uint64_t exit_time;
@@ -1018,7 +1021,7 @@ void uv__metrics_update_idle_time(uv_loop_t* loop) {
 }
 
 
-void uv__metrics_set_provider_entry_time(uv_loop_t* loop) {
+void uv__metrics_set_provider_entry_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   uv__loop_metrics_t* loop_metrics;
   uint64_t now;
 
@@ -1033,7 +1036,7 @@ void uv__metrics_set_provider_entry_time(uv_loop_t* loop) {
 }
 
 
-int uv_metrics_info(uv_loop_t* loop, uv_metrics_t* metrics) {
+int uv_metrics_info(uv_loop_t* loop, uv_metrics_t* metrics) UV_REQUIRES_LOOP(loop) {
   memcpy(metrics,
          &uv__get_loop_metrics(loop)->metrics,
          sizeof(*metrics));
@@ -1042,7 +1045,7 @@ int uv_metrics_info(uv_loop_t* loop, uv_metrics_t* metrics) {
 }
 
 
-uint64_t uv_metrics_idle_time(uv_loop_t* loop) {
+uint64_t uv_metrics_idle_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   uv__loop_metrics_t* loop_metrics;
   uint64_t entry_time;
   uint64_t idle_time;

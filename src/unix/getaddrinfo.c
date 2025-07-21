@@ -105,10 +105,11 @@ static void uv__getaddrinfo_work(struct uv__work* w) {
 }
 
 
-static void uv__getaddrinfo_done(struct uv__work* w, int status) {
+static void uv__getaddrinfo_done(struct uv__work* w, int status) UV_REQUIRES_REQ_LOOP(w) {
   uv_getaddrinfo_t* req;
 
   req = container_of(w, uv_getaddrinfo_t, work_req);
+  uv__work_assume_req_loop_capability((uv_req_t*)req, w);
   uv__req_unregister(req->loop);
 
   /* See initialization in uv_getaddrinfo(). */
@@ -140,7 +141,7 @@ int uv_getaddrinfo(uv_loop_t* loop,
                    uv_getaddrinfo_cb cb,
                    const char* hostname,
                    const char* service,
-                   const struct addrinfo* hints) {
+                   const struct addrinfo* hints) UV_REQUIRES_LOOP(loop) {
   char hostname_ascii[256];
   size_t hostname_len;
   size_t service_len;

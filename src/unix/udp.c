@@ -41,7 +41,7 @@
 #endif
 
 static void uv__udp_run_completed(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
-static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents);
+static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) UV_REQUIRES_LOOP(loop);
 static void uv__udp_recvmsg(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 static void uv__udp_sendmsg(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 static int uv__udp_maybe_deferred_bind(uv_udp_t* handle,
@@ -136,7 +136,7 @@ static void uv__udp_run_completed(uv_udp_t* handle) UV_REQUIRES_HANDLE_LOOP(hand
 }
 
 
-static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) {
+static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) UV_REQUIRES_LOOP(loop) {
   uv_udp_t* handle;
 
   handle = container_of(w, uv_udp_t, io_watcher);
@@ -755,7 +755,7 @@ static int uv__udp_set_source_membership4(uv_udp_t* handle,
                                           const struct sockaddr_in* multicast_addr,
                                           const char* interface_addr,
                                           const struct sockaddr_in* source_addr,
-                                          uv_membership membership) {
+                                          uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct ip_mreq_source mreq;
   int optname;
   int err;
@@ -800,7 +800,7 @@ static int uv__udp_set_source_membership6(uv_udp_t* handle,
                                           const struct sockaddr_in6* multicast_addr,
                                           const char* interface_addr,
                                           const struct sockaddr_in6* source_addr,
-                                          uv_membership membership) {
+                                          uv_membership membership) UV_REQUIRES_HANDLE_LOOP(handle) {
   struct group_source_req mreq;
   struct sockaddr_in6 addr6;
   int optname;

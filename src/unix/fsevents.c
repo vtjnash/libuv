@@ -199,7 +199,7 @@ static void uv__fsevents_cb(uv_async_t* cb) {
 /* Runs in CF thread, pushed event into handle's event list */
 static void uv__fsevents_push_event(uv_fs_event_t* handle,
                                     struct uv__queue* events,
-                                    int err) {
+                                    int err) UV_EXCLUDES(&owner_thread) {
   assert(events != NULL || err != 0);
   uv_mutex_lock(&handle->cf_mutex);
 
@@ -222,7 +222,8 @@ static void uv__fsevents_event_cb(const FSEventStreamRef streamRef,
                                   size_t numEvents,
                                   void* eventPaths,
                                   const FSEventStreamEventFlags eventFlags[],
-                                  const FSEventStreamEventId eventIds[]) {
+                                  const FSEventStreamEventId eventIds[])
+UV_EXCLUDES(&owner_thread) {
   size_t i;
   int len;
   char** paths;
@@ -403,7 +404,8 @@ static void uv__fsevents_destroy_stream(uv__cf_loop_state_t* state) {
 /* Runs in CF thread, when there're new fsevent handles to add to stream */
 static void uv__fsevents_reschedule(uv__cf_loop_state_t* state,
                                     uv_loop_t* loop,
-                                    uv__cf_loop_signal_type_t type) {
+                                    uv__cf_loop_signal_type_t type)
+UV_EXCLUDES(&owner_thread) {
   struct uv__queue* q;
   uv_fs_event_t* curr;
   CFArrayRef cf_paths;
@@ -582,7 +584,7 @@ out:
 
 
 /* Runs in UV loop */
-static int uv__fsevents_loop_init(uv_loop_t* loop) {
+static int uv__fsevents_loop_init(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   CFRunLoopSourceContext ctx;
   uv__cf_loop_state_t* state;
   pthread_attr_t attr;
@@ -675,7 +677,7 @@ fail_mutex_init:
 
 
 /* Runs in UV loop */
-void uv__fsevents_loop_delete(uv_loop_t* loop) {
+void uv__fsevents_loop_delete(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   uv__cf_loop_signal_t* s;
   uv__cf_loop_state_t* state;
   struct uv__queue* q;
@@ -711,7 +713,7 @@ void uv__fsevents_loop_delete(uv_loop_t* loop) {
 
 
 /* Runs in CF thread. This is the CF loop's body */
-static void* uv__cf_loop_runner(void* arg) {
+static void* uv__cf_loop_runner(void* arg) UV_EXCLUDES(&owner_thread) {
   uv_loop_t* loop;
   uv__cf_loop_state_t* state;
 
@@ -737,7 +739,7 @@ static void* uv__cf_loop_runner(void* arg) {
 
 
 /* Runs in CF thread, executed after `uv__cf_loop_signal()` */
-static void uv__cf_loop_cb(void* arg) {
+static void uv__cf_loop_cb(void* arg) UV_EXCLUDES(&owner_thread) {
   uv_loop_t* loop;
   uv__cf_loop_state_t* state;
   struct uv__queue* item;
@@ -797,7 +799,7 @@ int uv__cf_loop_signal(uv_loop_t* loop,
 
 
 /* Runs in UV loop to initialize handle */
-int uv__fsevents_init(uv_fs_event_t* handle) {
+int uv__fsevents_init(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) UV_EXCLUDES(&handle->cf_mutex) {
   char* buf;
   int err;
   uv__cf_loop_state_t* state;
@@ -874,7 +876,7 @@ fail_cf_cb_malloc:
 
 
 /* Runs in UV loop to de-initialize handle */
-int uv__fsevents_close(uv_fs_event_t* handle) {
+int uv__fsevents_close(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) UV_EXCLUDES(&handle->cf_mutex) {
   int err;
   uv__cf_loop_state_t* state;
 

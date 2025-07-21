@@ -143,19 +143,40 @@ extern "C" {
   UV__THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
 
 /* Helper macros for loop capability annotations */
-#define UV_REQUIRES_LOOP(loop) UV_REQUIRES((loop)->owner_thread)
-#define UV_REQUIRES_HANDLE_LOOP(handle) UV_REQUIRES(handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread,\
-    ((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread,\
-    ((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
-#define UV_EXCLUDES_HANDLE_LOOP(handle) UV_EXCLUDES(handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread)\
-    UV_EXCLUDES(((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread)\
-    UV_EXCLUDES(((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
-#define UV_ACQUIRE_HANDLE_LOOP_ANY(handle) UV_TRY_ACQUIRE(0, handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread,\
-    ((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread,\
-    ((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
-#define UV_RELEASE_HANDLE_LOOP_ANY(handle) UV_RELEASE(handle->loop->owner_thread, ((uv_handle_t*)handle)->loop->owner_thread, ((uv_stream_t*)handle)->loop->owner_thread,\
-    ((uv_tcp_t*)handle)->loop->owner_thread, ((uv_udp_t*)handle)->loop->owner_thread, ((uv_pipe_t*)handle)->loop->owner_thread, ((uv_tty_t*)handle)->loop->owner_thread,\
-    ((uv_async_t*)handle)->loop->owner_thread, ((uv_fs_event_t*)handle)->loop->owner_thread)
+//#define UV_REQUIRES_LOOP(loop) UV_REQUIRES((loop)->owner_thread)
+//#define UV_REQUIRES_HANDLE_LOOP(handle) UV_REQUIRES(&handle->loop->owner_thread, &((uv_handle_t*)handle)->loop->owner_thread, &((uv_stream_t*)handle)->loop->owner_thread,\
+//    &((uv_tcp_t*)handle)->loop->owner_thread, &((uv_udp_t*)handle)->loop->owner_thread, &((uv_pipe_t*)handle)->loop->owner_thread, &((uv_tty_t*)handle)->loop->owner_thread,\
+//    &((uv_async_t*)handle)->loop->owner_thread, &((uv_fs_event_t*)handle)->loop->owner_thread)
+//#define UV_EXCLUDES_HANDLE_LOOP(handle) UV_EXCLUDES(&handle->loop->owner_thread, &((uv_handle_t*)handle)->loop->owner_thread, &((uv_stream_t*)handle)->loop->owner_thread)\
+//    UV_EXCLUDES(&((uv_tcp_t*)handle)->loop->owner_thread, &((uv_udp_t*)handle)->loop->owner_thread, &((uv_pipe_t*)handle)->loop->owner_thread, &((uv_tty_t*)handle)->loop->owner_thread)\
+//    UV_EXCLUDES(&((uv_async_t*)handle)->loop->owner_thread, &((uv_fs_event_t*)handle)->loop->owner_thread)
+//#define UV_ACQUIRE_HANDLE_LOOP_ANY(handle) UV_TRY_ACQUIRE(0, &handle->loop->owner_thread, &((uv_handle_t*)handle)->loop->owner_thread, &((uv_stream_t*)handle)->loop->owner_thread,\
+//    &((uv_tcp_t*)handle)->loop->owner_thread, &((uv_udp_t*)handle)->loop->owner_thread, &((uv_pipe_t*)handle)->loop->owner_thread, &((uv_tty_t*)handle)->loop->owner_thread,\
+//    &((uv_async_t*)handle)->loop->owner_thread, &((uv_fs_event_t*)handle)->loop->owner_thread)
+//#define UV_RELEASE_HANDLE_LOOP_ANY(handle) UV_RELEASE(&handle->loop->owner_thread, &((uv_handle_t*)handle)->loop->owner_thread, &((uv_stream_t*)handle)->loop->owner_thread,\
+//    &((uv_tcp_t*)handle)->loop->owner_thread, &((uv_udp_t*)handle)->loop->owner_thread, &((uv_pipe_t*)handle)->loop->owner_thread, &((uv_tty_t*)handle)->loop->owner_thread,\
+//    &((uv_async_t*)handle)->loop->owner_thread, &((uv_fs_event_t*)handle)->loop->owner_thread)
+extern struct single_threaded_token* owner_thread;
+#ifdef BUILDING_UV_SHARED
+#define UV_REQUIRES_LOOP(loop) UV_REQUIRES(&owner_thread)
+#define UV_REQUIRES_HANDLE_LOOP(handle) UV_REQUIRES(&owner_thread)
+#define UV_REQUIRES_REQ_LOOP(handle) UV_REQUIRES(&owner_thread)
+#define UV_EXCLUDES_HANDLE_LOOP(handle) UV_EXCLUDES(&owner_thread)
+#define UV_EXCLUDES_REQ_LOOP(handle) UV_EXCLUDES(&owner_thread)
+#define UV_ACQUIRE_HANDLE_LOOP_ANY(handle) //UV_ACQUIRE(&owner_thread)
+#define UV_RELEASE_HANDLE_LOOP_ANY(handle) //UV_RELEASE(&owner_thread)
+#define UV_LOOP_GUARDED_BY(x) UV_GUARDED_BY(x)
+#else
+#define UV_REQUIRES_LOOP(loop)
+#define UV_REQUIRES_HANDLE_LOOP(handle)
+#define UV_REQUIRES_REQ_LOOP(handle)
+#define UV_EXCLUDES_HANDLE_LOOP(handle)
+#define UV_EXCLUDES_REQ_LOOP(handle)
+#define UV_ACQUIRE_HANDLE_LOOP_ANY(handle)
+#define UV_RELEASE_HANDLE_LOOP_ANY(handle)
+#define UV_LOOP_GUARDED_BY(x)
+#endif
+#define UV_ACQUIRE_LOOP(loop) //UV_ACQUIRE(&owner_thread)
 /* For FS operations that can be sync (loop=NULL) or async (loop!=NULL) */
 #define UV_REQUIRES_LOOP_IF_NOT_NULL(loop) UV_NO_THREAD_SAFETY_ANALYSIS
 
@@ -615,21 +636,21 @@ struct UV_CAPABILITY("single-threaded") single_threaded_token;
 
 struct uv_loop_s {
   /* User data - use this for whatever. */
-  union {
+  //union {
     void* data;
-    struct single_threaded_token* owner_thread;
-  };
+    //struct single_threaded_token* owner_thread;
+  //};
   /* Loop reference counting. */
-  unsigned int active_handles UV_GUARDED_BY(owner_thread);
-  struct uv__queue handle_queue UV_GUARDED_BY(owner_thread);
+  unsigned int active_handles UV_LOOP_GUARDED_BY(&owner_thread);
+  struct uv__queue handle_queue UV_LOOP_GUARDED_BY(&owner_thread);
   union {
     void* unused;
     unsigned int count;
-  } active_reqs UV_GUARDED_BY(owner_thread);
+  } active_reqs UV_LOOP_GUARDED_BY(&owner_thread);
   /* Internal storage for future extensions. */
-  void* internal_fields UV_GUARDED_BY(owner_thread);
+  void* internal_fields UV_LOOP_GUARDED_BY(&owner_thread);
   /* Internal flag to signal loop stop. */
-  unsigned int stop_flag UV_GUARDED_BY(owner_thread);
+  unsigned int stop_flag UV_LOOP_GUARDED_BY(&owner_thread);
   void* reserved[4];
   UV_LOOP_PRIVATE_FIELDS
 };
@@ -651,7 +672,7 @@ UV_EXTERN int uv_replace_allocator(uv_malloc_func malloc_func,
                                    uv_free_func free_func);
 
 UV_EXTERN uv_loop_t* uv_default_loop(void);
-UV_EXTERN int uv_loop_init(uv_loop_t* loop) UV_ACQUIRE(loop->owner_thread);
+UV_EXTERN int uv_loop_init(uv_loop_t* loop) UV_NO_THREAD_SAFETY_ANALYSIS;
 UV_EXTERN int uv_loop_close(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 /*
  * NOTE:
@@ -664,7 +685,7 @@ UV_EXTERN uv_loop_t* uv_loop_new(void);
  *  This function is DEPRECATED. Users should use
  *  uv_loop_close and free the memory manually instead.
  */
-UV_EXTERN void uv_loop_delete(uv_loop_t*);
+UV_EXTERN void uv_loop_delete(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 UV_EXTERN size_t uv_loop_size(void);
 UV_EXTERN int uv_loop_alive(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 UV_EXTERN int uv_loop_configure(uv_loop_t* loop, uv_loop_option option, ...) UV_REQUIRES_LOOP(loop);
@@ -720,7 +741,7 @@ UV_PRIVATE_REQ_TYPES
 
 UV_EXTERN int uv_shutdown(uv_shutdown_t* req,
                           uv_stream_t* handle,
-                          uv_shutdown_cb cb);
+                          uv_shutdown_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
 struct uv_shutdown_s {
   UV_REQ_FIELDS
@@ -746,11 +767,11 @@ UV_EXTERN const char* uv_req_type_name(uv_req_type type);
 
 UV_EXTERN int uv_is_active(const uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
-UV_EXTERN void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg);
+UV_EXTERN void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg) UV_REQUIRES_LOOP(loop);
 
 /* Helpers for ad hoc debugging, no API/ABI stability guaranteed. */
-UV_EXTERN void uv_print_all_handles(uv_loop_t* loop, /*FILE*/void* stream);
-UV_EXTERN void uv_print_active_handles(uv_loop_t* loop, /*FILE*/void* stream);
+UV_EXTERN void uv_print_all_handles(uv_loop_t* loop, /*FILE*/void* stream) UV_REQUIRES_LOOP(loop);
+UV_EXTERN void uv_print_active_handles(uv_loop_t* loop, /*FILE*/void* stream) UV_REQUIRES_LOOP(loop);
 
 UV_EXTERN void uv_close(uv_handle_t* handle, uv_close_cb close_cb) UV_REQUIRES_HANDLE_LOOP(handle);
 
@@ -839,29 +860,29 @@ UV_EXTERN size_t uv_stream_get_write_queue_size(const uv_stream_t* stream) UV_RE
 UV_EXTERN int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) UV_REQUIRES_HANDLE_LOOP(stream);
 UV_EXTERN int uv_accept(uv_stream_t* server, uv_stream_t* client) UV_REQUIRES_HANDLE_LOOP(server);
 
-UV_EXTERN int uv_read_start(uv_stream_t*,
+UV_EXTERN int uv_read_start(uv_stream_t* stream,
                             uv_alloc_cb alloc_cb,
-                            uv_read_cb read_cb);
+                            uv_read_cb read_cb) UV_REQUIRES_HANDLE_LOOP(stream);
 UV_EXTERN int uv_read_stop(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 
 UV_EXTERN int uv_write(uv_write_t* req,
                        uv_stream_t* handle,
                        const uv_buf_t bufs[],
                        unsigned int nbufs,
-                       uv_write_cb cb);
+                       uv_write_cb cb) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_write2(uv_write_t* req,
                         uv_stream_t* handle,
                         const uv_buf_t bufs[],
                         unsigned int nbufs,
                         uv_stream_t* send_handle,
-                        uv_write_cb cb);
+                        uv_write_cb cb) UV_REQUIRES_HANDLE_LOOP(handle) UV_REQUIRES_HANDLE_LOOP(send_handle);
 UV_EXTERN int uv_try_write(uv_stream_t* handle,
                            const uv_buf_t bufs[],
-                           unsigned int nbufs);
+                           unsigned int nbufs) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_try_write2(uv_stream_t* handle,
                             const uv_buf_t bufs[],
                             unsigned int nbufs,
-                            uv_stream_t* send_handle);
+                            uv_stream_t* send_handle) UV_REQUIRES_HANDLE_LOOP(handle) UV_REQUIRES_HANDLE_LOOP(send_handle);
 
 /* uv_write_t is a subclass of uv_req_t. */
 struct uv_write_s {
@@ -1154,7 +1175,7 @@ UV_EXTERN int uv_idle_stop(uv_idle_t* idle) UV_REQUIRES_HANDLE_LOOP(idle);
 UV_EXTERN int uv_async_init(uv_loop_t* loop,
                             uv_async_t* async,
                             uv_async_cb async_cb) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(async);
-UV_EXTERN int uv_async_send(uv_async_t* async);
+UV_EXTERN int uv_async_send(uv_async_t* async) UV_EXCLUDES_HANDLE_LOOP(async);
 
 UV_EXTERN int uv_timer_init(uv_loop_t* loop, uv_timer_t* handle) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
 UV_EXTERN int uv_timer_start(uv_timer_t* handle,
@@ -1186,7 +1207,7 @@ UV_EXTERN int uv_getaddrinfo(uv_loop_t* loop,
                              uv_getaddrinfo_cb getaddrinfo_cb,
                              const char* node,
                              const char* service,
-                             const struct addrinfo* hints);
+                             const struct addrinfo* hints) UV_REQUIRES_LOOP(loop);
 UV_EXTERN void uv_freeaddrinfo(struct addrinfo* ai);
 
 
@@ -1365,7 +1386,7 @@ enum uv_process_flags {
 
 UV_EXTERN int uv_spawn(uv_loop_t* loop,
                        uv_process_t* handle,
-                       const uv_process_options_t* options);
+                       const uv_process_options_t* options) UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle);
 UV_EXTERN int uv_process_kill(uv_process_t* handle, int signum) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_kill(int pid, int signum);
 UV_EXTERN uv_pid_t uv_process_get_pid(const uv_process_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
@@ -1384,9 +1405,9 @@ struct uv_work_s {
 UV_EXTERN int uv_queue_work(uv_loop_t* loop,
                             uv_work_t* req,
                             uv_work_cb work_cb,
-                            uv_after_work_cb after_work_cb) UV_EXCLUDES(loop->owner_thread);
+                            uv_after_work_cb after_work_cb) UV_REQUIRES_LOOP(loop);
 
-UV_EXTERN int uv_cancel(uv_req_t* req);
+UV_EXTERN int uv_cancel(uv_req_t* req) UV_EXCLUDES_REQ_LOOP(req);
 
 
 struct uv_cpu_times_s {
@@ -1590,8 +1611,8 @@ struct uv_metrics_s {
   uint64_t* reserved[13];
 };
 
-UV_EXTERN int uv_metrics_info(uv_loop_t* loop, uv_metrics_t* metrics);
-UV_EXTERN uint64_t uv_metrics_idle_time(uv_loop_t* loop);
+UV_EXTERN int uv_metrics_info(uv_loop_t* loop, uv_metrics_t* metrics) UV_REQUIRES_LOOP(loop);
+UV_EXTERN uint64_t uv_metrics_idle_time(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 
 typedef enum {
   UV_FS_UNKNOWN = -1,
@@ -1660,7 +1681,7 @@ UV_EXTERN void* uv_fs_get_ptr(const uv_fs_t*);
 UV_EXTERN const char* uv_fs_get_path(const uv_fs_t*);
 UV_EXTERN uv_stat_t* uv_fs_get_statbuf(uv_fs_t*);
 
-UV_EXTERN void uv_fs_req_cleanup(uv_fs_t* req);
+UV_EXTERN void uv_fs_req_cleanup(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS;
 UV_EXTERN int uv_fs_close(uv_loop_t* loop,
                           uv_fs_t* req,
                           uv_os_fd_t file,
@@ -1968,7 +1989,7 @@ UV_EXTERN int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle) UV_REQUIR
 UV_EXTERN int uv_fs_event_start(uv_fs_event_t* handle,
                                 uv_fs_event_cb cb,
                                 const char* path,
-                                unsigned int flags);
+                                unsigned int flags) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_fs_event_stop(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 UV_EXTERN int uv_fs_event_getpath(uv_fs_event_t* handle,
                                   char* buffer,
@@ -2006,7 +2027,7 @@ UV_EXTERN int uv_random(uv_loop_t* loop,
                         void *buf,
                         size_t buflen,
                         unsigned flags,  /* For future extension; must be 0. */
-                        uv_random_cb cb);
+                        uv_random_cb cb) UV_REQUIRES_LOOP(loop);
 
 #if defined(IF_NAMESIZE)
 # define UV_IF_NAMESIZE (IF_NAMESIZE + 1)
@@ -2165,8 +2186,17 @@ UV_EXTERN void uv_wtf8_to_utf16(const char* wtf8,
                                 uint16_t* utf16,
                                 size_t utf16_len);
 
-static INLINE void uv_assume_closed(uv_handle_t *handle)
+/* Assert that the handle is not used again. */
+static INLINE void uv__handle_release(uv_handle_t *handle)
 UV_RELEASE_HANDLE_LOOP_ANY(handle) UV_NO_THREAD_SAFETY_ANALYSIS {}
+
+/* Assume that a loop implies a particular handle. */
+static INLINE void uv__handle_assume_loop_capability(uv_handle_t* handle, uv_loop_t* loop) 
+UV_REQUIRES_LOOP(loop) UV_ACQUIRE_HANDLE_LOOP_ANY(handle) UV_NO_THREAD_SAFETY_ANALYSIS {}
+
+/* Assume that a work implies the containing req. */
+static INLINE void uv__work_assume_req_loop_capability(uv_req_t* req, struct uv__work* work) 
+UV_REQUIRES_REQ_LOOP(work) UV_ACQUIRE_LOOP(req->loop) UV_NO_THREAD_SAFETY_ANALYSIS {}
 
 /* Don't export the private CPP symbols. */
 #undef UV_HANDLE_TYPE_PRIVATE

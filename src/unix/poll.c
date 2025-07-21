@@ -27,7 +27,7 @@
 #include <errno.h>
 
 
-static void uv__poll_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+static void uv__poll_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop) {
   uv_poll_t* handle;
   int pevents;
 

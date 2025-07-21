@@ -281,7 +281,7 @@ void uv__stream_destroy(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 #if defined(__APPLE__)
 int uv__stream_try_select(uv_stream_t* stream, int* fd) UV_REQUIRES_HANDLE_LOOP(stream);
 #endif /* defined(__APPLE__) */
-void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events);
+void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop);
 int uv__accept(int sockfd);
 int uv__dup2_cloexec(int oldfd, int newfd);
 int uv__open_cloexec(const char* path, int flags);
@@ -387,13 +387,13 @@ int uv__make_pipe(int fds[2], int flags);
 
 #if defined(__APPLE__)
 
-int uv__fsevents_init(uv_fs_event_t* handle) UV_EXCLUDES(&handle->cf_mutex);
-int uv__fsevents_close(uv_fs_event_t* handle) UV_EXCLUDES(&handle->cf_mutex);
+int uv__fsevents_init(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) UV_EXCLUDES(&handle->cf_mutex);
+int uv__fsevents_close(uv_fs_event_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) UV_EXCLUDES(&handle->cf_mutex);
 void uv__fsevents_loop_delete(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_EXCLUDES(&loop->cf_mutex);
 
 #endif /* defined(__APPLE__) */
 
-UV_UNUSED(static void uv__update_time(uv_loop_t* loop)) {
+UV_UNUSED(static void uv__update_time(uv_loop_t* loop)) UV_REQUIRES_LOOP(loop) {
   /* Use a fast time source if available.  We only need millisecond precision.
    */
   loop->time = uv__hrtime(UV_CLOCK_FAST) / 1000000;

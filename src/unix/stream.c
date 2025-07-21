@@ -70,13 +70,13 @@ union uv__cmsg {
 
 STATIC_ASSERT(256 == sizeof(union uv__cmsg));
 
-static void uv__stream_connect(uv_stream_t*);
-static void uv__write(uv_stream_t* stream);
-static void uv__read(uv_stream_t* stream);
-static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events);
-static void uv__write_callbacks(uv_stream_t* stream);
+static void uv__stream_connect(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
+static void uv__write(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
+static void uv__read(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
+static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop);
+static void uv__write_callbacks(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 static size_t uv__write_req_size(uv_write_t* req);
-static void uv__drain(uv_stream_t* stream);
+static void uv__drain(uv_stream_t* stream) UV_REQUIRES_HANDLE_LOOP(stream);
 
 
 void uv__stream_init(uv_loop_t* loop,
@@ -143,7 +143,7 @@ static void uv__stream_osx_interrupt_select(uv_stream_t* stream) {
 
 
 #if defined(__APPLE__)
-static void uv__stream_osx_select(void* arg) {
+static void uv__stream_osx_select(void* arg) UV_EXCLUDES(&owner_thread) {
   uv_stream_t* stream;
   uv__stream_select_t* s;
   char buf[1024];
@@ -481,7 +481,7 @@ void uv__stream_destroy(uv_stream_t* stream) {
  * thread opens a file or creates a socket in the time window between us
  * calling close() and accept().
  */
-static int uv__emfile_trick(uv_loop_t* loop, int accept_fd) {
+static int uv__emfile_trick(uv_loop_t* loop, int accept_fd) UV_REQUIRES_LOOP(loop) {
   int err;
   int emfile_fd;
 
@@ -711,7 +711,7 @@ static int uv__write_req_update(uv_stream_t* stream,
 }
 
 
-static void uv__write_req_finish(uv_write_t* req) {
+static void uv__write_req_finish(uv_write_t* req) UV_REQUIRES_REQ_LOOP(req) {
   uv_stream_t* stream = req->handle;
 
   /* Pop the req off tcp->write_queue. */
@@ -754,7 +754,8 @@ static int uv__handle_fd(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
 static int uv__try_write(uv_stream_t* stream,
                          const uv_buf_t bufs[],
                          unsigned int nbufs,
-                         uv_stream_t* send_handle) {
+                         uv_stream_t* send_handle)
+UV_REQUIRES_HANDLE_LOOP(stream) {
   struct iovec* iov;
   int iovmax;
   int iovcnt;
@@ -929,7 +930,7 @@ static void uv__write_callbacks(uv_stream_t* stream) {
 }
 
 
-static void uv__stream_eof(uv_stream_t* stream, const uv_buf_t* buf) {
+static void uv__stream_eof(uv_stream_t* stream, const uv_buf_t* buf) UV_REQUIRES_HANDLE_LOOP(stream) {
   stream->flags |= UV_HANDLE_READ_EOF;
   stream->flags &= ~UV_HANDLE_READING;
   uv__io_stop(stream->loop, &stream->io_watcher, POLLIN);
@@ -1186,7 +1187,7 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
 }
 
 
-static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) UV_REQUIRES_LOOP(loop) {
   uv_stream_t* stream;
 
   stream = container_of(w, uv_stream_t, io_watcher);
@@ -1294,7 +1295,7 @@ static void uv__stream_connect(uv_stream_t* stream) {
 
 static int uv__check_before_write(uv_stream_t* stream,
                                   unsigned int nbufs,
-                                  uv_stream_t* send_handle) {
+                                  uv_stream_t* send_handle) UV_REQUIRES_HANDLE_LOOP(stream) {
   assert(nbufs > 0);
   assert((stream->type == UV_TCP ||
           stream->type == UV_NAMED_PIPE ||

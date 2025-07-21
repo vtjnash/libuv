@@ -52,12 +52,13 @@ static void uv__getnameinfo_work(struct uv__work* w) {
   req->retcode = uv__getaddrinfo_translate_error(err);
 }
 
-static void uv__getnameinfo_done(struct uv__work* w, int status) {
+static void uv__getnameinfo_done(struct uv__work* w, int status) UV_REQUIRES_REQ_LOOP(w) {
   uv_getnameinfo_t* req;
   char* host;
   char* service;
 
   req = container_of(w, uv_getnameinfo_t, work_req);
+  uv__work_assume_req_loop_capability((uv_req_t*)req, w);
   uv__req_unregister(req->loop);
   host = service = NULL;
 
@@ -82,7 +83,7 @@ int uv_getnameinfo(uv_loop_t* loop,
                    uv_getnameinfo_t* req,
                    uv_getnameinfo_cb getnameinfo_cb,
                    const struct sockaddr* addr,
-                   int flags) {
+                   int flags) UV_REQUIRES_LOOP(loop) {
   if (req == NULL || addr == NULL)
     return UV_EINVAL;
 

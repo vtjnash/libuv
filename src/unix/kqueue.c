@@ -48,7 +48,8 @@
 #define EV_OOBAND  EV_FLAG1
 #endif
 
-static void uv__fs_event(uv_loop_t* loop, uv__io_t* w, unsigned int fflags);
+static void uv__fs_event(uv_loop_t* loop, uv__io_t* w, unsigned int fflags)
+UV_REQUIRES_LOOP(loop);
 
 
 int uv__kqueue_init(uv_loop_t* loop) {

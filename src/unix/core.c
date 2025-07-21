@@ -358,7 +358,7 @@ static void uv__finish_close(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle
 }
 
 
-static void uv__run_closing_handles(uv_loop_t* loop) {
+static void uv__run_closing_handles(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   uv_handle_t* p;
   uv_handle_t* q;
 
@@ -383,7 +383,7 @@ uv_os_fd_t uv_backend_fd(const uv_loop_t* loop) {
 }
 
 
-static int uv__loop_alive(const uv_loop_t* loop) {
+static int uv__loop_alive(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   return uv__has_active_handles(loop) ||
          uv__has_active_reqs(loop) ||
          !uv__queue_empty(&loop->pending_queue) ||
@@ -391,7 +391,7 @@ static int uv__loop_alive(const uv_loop_t* loop) {
 }
 
 
-static int uv__backend_timeout(const uv_loop_t* loop) {
+static int uv__backend_timeout(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   if (loop->stop_flag == 0 &&
       /* uv__loop_alive(loop) && */
       (uv__has_active_handles(loop) || uv__has_active_reqs(loop)) &&
@@ -404,7 +404,7 @@ static int uv__backend_timeout(const uv_loop_t* loop) {
 }
 
 
-int uv_backend_timeout(const uv_loop_t* loop) {
+int uv_backend_timeout(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   if (uv__queue_empty(&loop->watcher_queue))
     return uv__backend_timeout(loop);
   /* Need to call uv_run to update the backend fd state. */
@@ -412,7 +412,7 @@ int uv_backend_timeout(const uv_loop_t* loop) {
 }
 
 
-int uv_loop_alive(const uv_loop_t* loop) {
+int uv_loop_alive(const uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   return uv__loop_alive(loop);
 }
 
@@ -823,7 +823,7 @@ int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd) {
 }
 
 
-static void uv__run_pending(uv_loop_t* loop) {
+static void uv__run_pending(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   struct uv__queue* q;
   struct uv__queue pq;
   uv__io_t* w;
@@ -851,7 +851,7 @@ static unsigned int next_power_of_two(unsigned int val) {
   return val;
 }
 
-static void maybe_resize(uv_loop_t* loop, unsigned int len) {
+static void maybe_resize(uv_loop_t* loop, unsigned int len) UV_REQUIRES_LOOP(loop) {
   uv__io_t** watchers;
   void* fake_watcher_list;
   void* fake_watcher_count;

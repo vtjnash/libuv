@@ -223,7 +223,7 @@ skip:
     if (newfd != -1)
       uv__close(newfd);
     uv__queue_remove(&tty->handle_queue);
-    uv_assume_closed((uv_handle_t*) tty);
+    uv__handle_release((uv_handle_t*) tty);
     do
       r = fcntl(fd, F_SETFL, saved_flags);
     while (r == -1 && errno == EINTR);

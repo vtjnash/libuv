@@ -23,9 +23,9 @@
 #define UV_POSIX_H
 
 #define UV_PLATFORM_LOOP_FIELDS                                               \
-  struct pollfd* poll_fds;                                                    \
-  size_t poll_fds_used;                                                       \
-  size_t poll_fds_size;                                                       \
-  unsigned char poll_fds_iterating;                                           \
+  struct pollfd* poll_fds UV_LOOP_GUARDED_BY(&owner_thread);                 \
+  size_t poll_fds_used UV_LOOP_GUARDED_BY(&owner_thread);                    \
+  size_t poll_fds_size UV_LOOP_GUARDED_BY(&owner_thread);                    \
+  unsigned char poll_fds_iterating UV_LOOP_GUARDED_BY(&owner_thread);        \
 
 #endif /* UV_POSIX_H */

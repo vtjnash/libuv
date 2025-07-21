@@ -264,7 +264,7 @@ static void uv__signal_unregister_handler(int signum) {
 }
 
 
-static int uv__signal_loop_once_init(uv_loop_t* loop) {
+static int uv__signal_loop_once_init(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   int err;
 
   /* Return if already initialized. */
@@ -311,7 +311,7 @@ int uv__signal_loop_fork(uv_loop_t* loop) {
 }
 
 
-void uv__signal_loop_cleanup(uv_loop_t* loop) {
+void uv__signal_loop_cleanup(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_RELEASE_SHARED(&uv__signal_global_init_guard) {
   struct uv__queue* q;
 
   /* Stop all the signal watchers that are still attached to this loop. This
@@ -376,7 +376,7 @@ int uv_signal_start_oneshot(uv_signal_t* handle,
 static int uv__signal_start(uv_signal_t* handle,
                             uv_signal_cb signal_cb,
                             int signum,
-                            int oneshot) {
+                            int oneshot) UV_REQUIRES_HANDLE_LOOP(handle) {
   sigset_t saved_sigmask;
   int err;
   uv_signal_t* first_handle;
@@ -439,7 +439,7 @@ static int uv__signal_start(uv_signal_t* handle,
 
 static void uv__signal_event(uv_loop_t* loop,
                              uv__io_t* w,
-                             unsigned int events) {
+                             unsigned int events) UV_REQUIRES_LOOP(loop) {
   uv__signal_msg_t* msg;
   uv_signal_t* handle;
   char buf[sizeof(uv__signal_msg_t) * 32];
@@ -541,7 +541,7 @@ int uv_signal_stop(uv_signal_t* handle) UV_REQUIRES_SHARED(&uv__signal_global_in
 }
 
 
-static void uv__signal_stop(uv_signal_t* handle) {
+static void uv__signal_stop(uv_signal_t* handle) UV_REQUIRES_HANDLE_LOOP(handle) {
   uv_signal_t* removed_handle;
   sigset_t saved_sigmask;
   uv_signal_t* first_handle;

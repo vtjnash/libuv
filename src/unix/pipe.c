@@ -339,7 +339,7 @@ out:
 static int uv__pipe_getsockpeername(const uv_pipe_t* handle,
                                     uv__peersockfunc func,
                                     char* buffer,
-                                    size_t* size) {
+                                    size_t* size) UV_REQUIRES_HANDLE_LOOP(handle) {
 #if defined(__linux__)
   static const int is_linux = 1;
 #else

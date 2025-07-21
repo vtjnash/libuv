@@ -30,8 +30,8 @@
  * file watching.
  */
 #define UV_PLATFORM_LOOP_FIELDS                                               \
-  uv__io_t fs_event_watcher;                                                  \
-  int fs_fd;                                                                  \
+  uv__io_t fs_event_watcher UV_LOOP_GUARDED_BY(&owner_thread);               \
+  int fs_fd UV_LOOP_GUARDED_BY(&owner_thread);                               \
 
 #if defined(PORT_SOURCE_FILE)
 

@@ -195,7 +195,7 @@ void uv__wait_children(uv_loop_t* loop) {
  * avoided. Since this isn't called on those targets, the function
  * doesn't even need to be defined for them.
  */
-static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
+static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2], uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   int mask;
   int fd;
 
@@ -216,8 +216,12 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
   case UV_INHERIT_STREAM:
     if (container->flags & UV_INHERIT_FD)
       fd = container->data.file;
-    else
+    else {
+      /* Stream should be associated with the same loop or a compatible one.
+       * Assume capability from the loop we have. */
+      uv__handle_assume_loop_capability((uv_handle_t*)container->data.stream, loop);
       fd = uv__stream_fd(container->data.stream);
+    }
 
     if (fd == -1)
       return UV_EINVAL;
@@ -233,7 +237,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
 
 
 static int uv__process_open_stream(uv_stdio_container_t* container,
-                                   int pipefds[2]) {
+                                   int pipefds[2], uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   int flags;
   int err;
 
@@ -253,12 +257,14 @@ static int uv__process_open_stream(uv_stdio_container_t* container,
   if (container->flags & UV_READABLE_PIPE)
     flags |= UV_HANDLE_WRITABLE;
 
+  uv__handle_assume_loop_capability((uv_handle_t*)container->data.stream, loop);
   return uv__stream_open(container->data.stream, pipefds[0], flags);
 }
 
 
-static void uv__process_close_stream(uv_stdio_container_t* container) {
+static void uv__process_close_stream(uv_stdio_container_t* container, uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   if (!(container->flags & UV_CREATE_PIPE)) return;
+  uv__handle_assume_loop_capability((uv_handle_t*)container->data.stream, loop);
   uv__stream_close(container->data.stream);
 }
 
@@ -1065,7 +1071,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_init_stdio(options->stdio + i, pipes[i]);
+    err = uv__process_init_stdio(options->stdio + i, pipes[i], loop);
     if (err)
       goto error;
   }
@@ -1112,12 +1118,12 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_open_stream(options->stdio + i, pipes[i]);
+    err = uv__process_open_stream(options->stdio + i, pipes[i], loop);
     if (err == 0)
       continue;
 
     while (i--)
-      uv__process_close_stream(options->stdio + i);
+      uv__process_close_stream(options->stdio + i, loop);
 
     goto error;
   }

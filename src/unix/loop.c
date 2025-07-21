@@ -27,7 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 
-int uv_loop_init(uv_loop_t* loop) UV_EXCLUDES(&uv__signal_global_init_guard) {
+int uv_loop_init(uv_loop_t* loop) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv__loop_internal_fields_t* lfields;
   void* saved_data;
   int err;
@@ -165,7 +165,7 @@ int uv_loop_fork(uv_loop_t* loop) UV_NO_THREAD_SAFETY_ANALYSIS {
 }
 
 
-void uv__loop_close(uv_loop_t* loop) UV_RELEASE_SHARED(&uv__signal_global_init_guard) {
+void uv__loop_close(uv_loop_t* loop) UV_NO_THREAD_SAFETY_ANALYSIS {
   uv__loop_internal_fields_t* lfields;
 
   uv__signal_loop_cleanup(loop);
@@ -211,7 +211,7 @@ void uv__loop_close(uv_loop_t* loop) UV_RELEASE_SHARED(&uv__signal_global_init_g
 }
 
 
-int uv__loop_configure(uv_loop_t* loop, uv_loop_option option, va_list ap) {
+int uv__loop_configure(uv_loop_t* loop, uv_loop_option option, va_list ap) UV_REQUIRES_LOOP(loop) {
   uv__loop_internal_fields_t* lfields;
 
   lfields = uv__get_internal_fields(loop);

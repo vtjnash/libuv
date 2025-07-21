@@ -1845,10 +1845,11 @@ static void uv__fs_work(struct uv__work* w) {
 }
 
 
-static void uv__fs_done(struct uv__work* w, int status) {
+static void uv__fs_done(struct uv__work* w, int status) UV_REQUIRES_REQ_LOOP(w) {
   uv_fs_t* req;
 
   req = container_of(w, uv_fs_t, work_req);
+  uv__work_assume_req_loop_capability((uv_req_t*)req, w);
   uv__req_unregister(req->loop);
 
   if (status == UV_ECANCELED) {
@@ -1860,7 +1861,7 @@ static void uv__fs_done(struct uv__work* w, int status) {
 }
 
 
-void uv__fs_post(uv_loop_t* loop, uv_fs_t* req) {
+void uv__fs_post(uv_loop_t* loop, uv_fs_t* req) UV_REQUIRES_LOOP(loop) {
   uv__req_register(loop);
   uv__work_submit(loop,
                   &req->work_req,
@@ -1874,7 +1875,7 @@ int uv_fs_access(uv_loop_t* loop,
                  uv_fs_t* req,
                  const char* path,
                  int flags,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(ACCESS);
   PATH;
   req->flags = flags;
@@ -1886,7 +1887,7 @@ int uv_fs_chmod(uv_loop_t* loop,
                 uv_fs_t* req,
                 const char* path,
                 int mode,
-                uv_fs_cb cb) {
+                uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(CHMOD);
   PATH;
   req->mode = mode;
@@ -1899,7 +1900,7 @@ int uv_fs_chown(uv_loop_t* loop,
                 const char* path,
                 uv_uid_t uid,
                 uv_gid_t gid,
-                uv_fs_cb cb) {
+                uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(CHOWN);
   PATH;
   req->uid = uid;
@@ -1908,7 +1909,7 @@ int uv_fs_chown(uv_loop_t* loop,
 }
 
 
-int uv_fs_close(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) {
+int uv_fs_close(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(CLOSE);
   req->file = file;
   if (cb != NULL)
@@ -1922,7 +1923,7 @@ int uv_fs_fchmod(uv_loop_t* loop,
                  uv_fs_t* req,
                  uv_os_fd_t file,
                  int mode,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FCHMOD);
   req->file = file;
   req->mode = mode;
@@ -1935,7 +1936,7 @@ int uv_fs_fchown(uv_loop_t* loop,
                  uv_os_fd_t file,
                  uv_uid_t uid,
                  uv_gid_t gid,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FCHOWN);
   req->file = file;
   req->uid = uid;
@@ -1949,7 +1950,7 @@ int uv_fs_lchown(uv_loop_t* loop,
                  const char* path,
                  uv_uid_t uid,
                  uv_gid_t gid,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(LCHOWN);
   PATH;
   req->uid = uid;
@@ -1958,7 +1959,7 @@ int uv_fs_lchown(uv_loop_t* loop,
 }
 
 
-int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) {
+int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FDATASYNC);
   req->file = file;
   if (cb != NULL)
@@ -1968,7 +1969,7 @@ int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb)
 }
 
 
-int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) {
+int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FSTAT);
   req->file = file;
   if (cb != NULL)
@@ -1978,7 +1979,7 @@ int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) {
 }
 
 
-int uv_fs_fsync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) {
+int uv_fs_fsync(uv_loop_t* loop, uv_fs_t* req, uv_os_fd_t file, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FSYNC);
   req->file = file;
   if (cb != NULL)
@@ -1992,7 +1993,7 @@ int uv_fs_ftruncate(uv_loop_t* loop,
                     uv_fs_t* req,
                     uv_os_fd_t file,
                     int64_t off,
-                    uv_fs_cb cb) {
+                    uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FTRUNCATE);
   req->file = file;
   req->off = off;
@@ -2008,7 +2009,7 @@ int uv_fs_futime(uv_loop_t* loop,
                  uv_os_fd_t file,
                  double atime,
                  double mtime,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   return uv_fs_futime_ex(loop, req, file, NAN, atime, mtime, cb);
 }
 
@@ -2019,7 +2020,7 @@ int uv_fs_futime_ex(uv_loop_t* loop,
                     double btime,
                     double atime,
                     double mtime,
-                    uv_fs_cb cb) {
+                    uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(FUTIME);
   req->file = file;
   req->btime = btime;
@@ -2033,7 +2034,7 @@ int uv_fs_lutime(uv_loop_t* loop,
                  const char* path,
                  double atime,
                  double mtime,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(LUTIME);
   PATH;
   req->atime = atime;
@@ -2042,7 +2043,7 @@ int uv_fs_lutime(uv_loop_t* loop,
 }
 
 
-int uv_fs_lstat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
+int uv_fs_lstat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(LSTAT);
   PATH;
   if (cb != NULL)
@@ -2056,7 +2057,7 @@ int uv_fs_link(uv_loop_t* loop,
                uv_fs_t* req,
                const char* path,
                const char* new_path,
-               uv_fs_cb cb) {
+               uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(LINK);
   PATH2;
   if (cb != NULL)
@@ -2070,7 +2071,7 @@ int uv_fs_mkdir(uv_loop_t* loop,
                 uv_fs_t* req,
                 const char* path,
                 int mode,
-                uv_fs_cb cb) {
+                uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(MKDIR);
   PATH;
   req->mode = mode;
@@ -2084,7 +2085,7 @@ int uv_fs_mkdir(uv_loop_t* loop,
 int uv_fs_mkdtemp(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* tpl,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(MKDTEMP);
   req->path = uv__strdup(tpl);
   if (req->path == NULL)
@@ -2096,7 +2097,7 @@ int uv_fs_mkdtemp(uv_loop_t* loop,
 int uv_fs_mkstemp(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* tpl,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(MKSTEMP);
   req->path = uv__strdup(tpl);
   if (req->path == NULL)
@@ -2110,7 +2111,7 @@ int uv_fs_open(uv_loop_t* loop,
                const char* path,
                int flags,
                int mode,
-               uv_fs_cb cb) {
+               uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(OPEN);
   PATH;
   req->flags = flags;
@@ -2127,7 +2128,7 @@ int uv_fs_read(uv_loop_t* loop, uv_fs_t* req,
                const uv_buf_t bufs[],
                unsigned int nbufs,
                int64_t off,
-               uv_fs_cb cb) {
+               uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(READ);
 
   if (bufs == NULL || nbufs == 0)
@@ -2162,7 +2163,7 @@ int uv_fs_scandir(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* path,
                   int flags,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(SCANDIR);
   PATH;
   req->flags = flags;
@@ -2172,7 +2173,7 @@ int uv_fs_scandir(uv_loop_t* loop,
 int uv_fs_opendir(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char* path,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(OPENDIR);
   PATH;
   POST;
@@ -2181,7 +2182,7 @@ int uv_fs_opendir(uv_loop_t* loop,
 int uv_fs_readdir(uv_loop_t* loop,
                   uv_fs_t* req,
                   uv_dir_t* dir,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(READDIR);
 
   if (dir == NULL || dir->dir == NULL || dir->dirents == NULL)
@@ -2194,7 +2195,7 @@ int uv_fs_readdir(uv_loop_t* loop,
 int uv_fs_closedir(uv_loop_t* loop,
                    uv_fs_t* req,
                    uv_dir_t* dir,
-                   uv_fs_cb cb) {
+                   uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(CLOSEDIR);
 
   if (dir == NULL)
@@ -2207,7 +2208,7 @@ int uv_fs_closedir(uv_loop_t* loop,
 int uv_fs_readlink(uv_loop_t* loop,
                    uv_fs_t* req,
                    const char* path,
-                   uv_fs_cb cb) {
+                   uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(READLINK);
   PATH;
   POST;
@@ -2217,7 +2218,7 @@ int uv_fs_readlink(uv_loop_t* loop,
 int uv_fs_realpath(uv_loop_t* loop,
                   uv_fs_t* req,
                   const char * path,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(REALPATH);
   PATH;
   POST;
@@ -2228,7 +2229,7 @@ int uv_fs_rename(uv_loop_t* loop,
                  uv_fs_t* req,
                  const char* path,
                  const char* new_path,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(RENAME);
   PATH2;
   if (cb != NULL)
@@ -2238,7 +2239,7 @@ int uv_fs_rename(uv_loop_t* loop,
 }
 
 
-int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
+int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(RMDIR);
   PATH;
   POST;
@@ -2251,7 +2252,7 @@ int uv_fs_sendfile(uv_loop_t* loop,
                    uv_os_fd_t in_fd,
                    int64_t off,
                    size_t len,
-                   uv_fs_cb cb) {
+                   uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(SENDFILE);
   req->flags = in_fd; /* hack */
   req->file = out_fd;
@@ -2261,7 +2262,7 @@ int uv_fs_sendfile(uv_loop_t* loop,
 }
 
 
-int uv_fs_stat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
+int uv_fs_stat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(STAT);
   PATH;
   if (cb != NULL)
@@ -2276,7 +2277,7 @@ int uv_fs_symlink(uv_loop_t* loop,
                   const char* path,
                   const char* new_path,
                   int flags,
-                  uv_fs_cb cb) {
+                  uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(SYMLINK);
   PATH2;
   req->flags = flags;
@@ -2287,7 +2288,7 @@ int uv_fs_symlink(uv_loop_t* loop,
 }
 
 
-int uv_fs_unlink(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
+int uv_fs_unlink(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(UNLINK);
   PATH;
   if (cb != NULL)
@@ -2302,7 +2303,7 @@ int uv_fs_utime(uv_loop_t* loop,
                 const char* path,
                 double atime,
                 double mtime,
-                uv_fs_cb cb) {
+                uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   return uv_fs_utime_ex(loop, req, path, NAN, atime, mtime, cb);
 }
 
@@ -2313,7 +2314,7 @@ int uv_fs_utime_ex(uv_loop_t* loop,
                    double btime,
                    double atime,
                    double mtime,
-                   uv_fs_cb cb) {
+                   uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(UTIME);
   PATH;
   req->btime = btime;
@@ -2329,7 +2330,7 @@ int uv_fs_write(uv_loop_t* loop,
                 const uv_buf_t bufs[],
                 unsigned int nbufs,
                 int64_t off,
-                uv_fs_cb cb) {
+                uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(WRITE);
 
   if (bufs == NULL || nbufs == 0)
@@ -2357,7 +2358,7 @@ int uv_fs_write(uv_loop_t* loop,
 }
 
 
-void uv_fs_req_cleanup(uv_fs_t* req) {
+void uv_fs_req_cleanup(uv_fs_t* req) UV_NO_THREAD_SAFETY_ANALYSIS {
   if (req == NULL)
     return;
 
@@ -2395,7 +2396,7 @@ int uv_fs_copyfile(uv_loop_t* loop,
                    const char* path,
                    const char* new_path,
                    int flags,
-                   uv_fs_cb cb) {
+                   uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(COPYFILE);
 
   if (flags & ~(UV_FS_COPYFILE_EXCL |
@@ -2413,7 +2414,7 @@ int uv_fs_copyfile(uv_loop_t* loop,
 int uv_fs_statfs(uv_loop_t* loop,
                  uv_fs_t* req,
                  const char* path,
-                 uv_fs_cb cb) {
+                 uv_fs_cb cb) UV_REQUIRES_LOOP(loop) {
   INIT(STATFS);
   PATH;
   POST;

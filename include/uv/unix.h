@@ -214,35 +214,35 @@ typedef struct {
 } uv_lib_t;
 
 #define UV_LOOP_PRIVATE_FIELDS                                                \
-  unsigned long flags;                                                        \
-  int backend_fd;                                                             \
-  struct uv__queue pending_queue;                                             \
-  struct uv__queue watcher_queue;                                             \
-  uv__io_t** watchers;                                                        \
-  unsigned int nwatchers;                                                     \
-  unsigned int nfds;                                                          \
+  unsigned long flags UV_LOOP_GUARDED_BY(&owner_thread);                     \
+  int backend_fd UV_LOOP_GUARDED_BY(&owner_thread);                          \
+  struct uv__queue pending_queue UV_LOOP_GUARDED_BY(&owner_thread);          \
+  struct uv__queue watcher_queue UV_LOOP_GUARDED_BY(&owner_thread);          \
+  uv__io_t** watchers UV_LOOP_GUARDED_BY(&owner_thread);                     \
+  unsigned int nwatchers UV_LOOP_GUARDED_BY(&owner_thread);                  \
+  unsigned int nfds UV_LOOP_GUARDED_BY(&owner_thread);                       \
   uv_mutex_t wq_mutex;                                                        \
   struct uv__queue wq UV_GUARDED_BY(&wq_mutex);                               \
   uv_async_t wq_async;                                                        \
   uv_rwlock_t cloexec_lock;                                                   \
-  uv_handle_t* closing_handles;                                               \
-  struct uv__queue process_handles;                                           \
-  struct uv__queue prepare_handles;                                           \
-  struct uv__queue check_handles;                                             \
-  struct uv__queue idle_handles;                                              \
-  struct uv__queue async_handles;                                             \
-  uv__io_t async_io_watcher;                                                  \
-  int async_wfd;                                                              \
+  uv_handle_t* closing_handles UV_LOOP_GUARDED_BY(&owner_thread);            \
+  struct uv__queue process_handles UV_LOOP_GUARDED_BY(&owner_thread);        \
+  struct uv__queue prepare_handles UV_LOOP_GUARDED_BY(&owner_thread);        \
+  struct uv__queue check_handles UV_LOOP_GUARDED_BY(&owner_thread);          \
+  struct uv__queue idle_handles UV_LOOP_GUARDED_BY(&owner_thread);           \
+  struct uv__queue async_handles UV_LOOP_GUARDED_BY(&owner_thread);          \
+  uv__io_t async_io_watcher UV_LOOP_GUARDED_BY(&owner_thread);               \
+  int async_wfd UV_LOOP_GUARDED_BY(&owner_thread);                           \
   struct {                                                                    \
     void* min;                                                                \
     unsigned int nelts;                                                       \
-  } timer_heap;                                                               \
-  uint64_t timer_counter;                                                     \
-  uint64_t time;                                                              \
+  } timer_heap UV_LOOP_GUARDED_BY(&owner_thread);                            \
+  uint64_t timer_counter UV_LOOP_GUARDED_BY(&owner_thread);                  \
+  uint64_t time UV_LOOP_GUARDED_BY(&owner_thread);                           \
   int signal_pipefd[2];                                                       \
-  uv__io_t signal_io_watcher;                                                 \
-  uv_signal_t child_watcher;                                                  \
-  int emfile_fd;                                                              \
+  uv__io_t signal_io_watcher UV_LOOP_GUARDED_BY(&owner_thread);              \
+  uv_signal_t child_watcher UV_LOOP_GUARDED_BY(&owner_thread);               \
+  int emfile_fd UV_LOOP_GUARDED_BY(&owner_thread);                           \
   UV_PLATFORM_LOOP_FIELDS                                                     \
 
 #define UV_REQ_TYPE_PRIVATE /* empty */

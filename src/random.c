@@ -77,10 +77,11 @@ static void uv__random_work(struct uv__work* w) {
 }
 
 
-static void uv__random_done(struct uv__work* w, int status) {
+static void uv__random_done(struct uv__work* w, int status) UV_REQUIRES_REQ_LOOP(w) {
   uv_random_t* req;
 
   req = container_of(w, uv_random_t, work_req);
+  uv__work_assume_req_loop_capability((uv_req_t*)req, w);
   uv__req_unregister(req->loop);
 
   if (status == 0)
@@ -95,7 +96,7 @@ int uv_random(uv_loop_t* loop,
               void *buf,
               size_t buflen,
               unsigned flags,
-              uv_random_cb cb) {
+              uv_random_cb cb) UV_REQUIRES_LOOP(loop) {
   if (buflen > 0x7FFFFFFFu)
     return UV_E2BIG;
 

@@ -25,7 +25,7 @@
 #define UV_PLATFORM_SEM_T long
 
 #define UV_PLATFORM_LOOP_FIELDS                                               \
-  void* ep;                                                                   \
+  void* ep UV_LOOP_GUARDED_BY(&owner_thread);                                \
 
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
   char rfis_rftok[8];                                                         \

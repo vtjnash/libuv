@@ -67,7 +67,7 @@ static void uv__kqueue_runtime_detection(void) UV_REQUIRES(&kqueue_runtime_detec
 #endif
 
 static void uv__async_send(uv_loop_t* loop);
-static int uv__async_start(uv_loop_t* loop);
+static int uv__async_start(uv_loop_t* loop) UV_REQUIRES_LOOP(loop);
 static void uv__cpu_relax(void);
 
 
@@ -161,6 +161,7 @@ static void uv__async_io(uv_loop_t* loop, uv__io_t* w, unsigned int events)
 #if UV__KQUEUE_EVFILT_USER
 UV_REQUIRES_SHARED(&kqueue_runtime_detection_guard)
 #endif
+UV_REQUIRES_LOOP(loop)
 {
   char buf[1024];
   ssize_t r;
@@ -197,6 +198,7 @@ UV_REQUIRES_SHARED(&kqueue_runtime_detection_guard)
   while (!uv__queue_empty(&queue)) {
     q = uv__queue_head(&queue);
     h = uv__queue_data(q, uv_async_t, queue);
+    uv__handle_assume_loop_capability((uv_handle_t*) h, loop);
 
     uv__queue_remove(q);
     uv__queue_insert_tail(&loop->async_handles, q);
@@ -215,6 +217,7 @@ UV_REQUIRES_SHARED(&kqueue_runtime_detection_guard)
 
 
 static void uv__async_send(uv_loop_t* loop)
+UV_REQUIRES_LOOP(loop)
 #if UV__KQUEUE_EVFILT_USER
 UV_REQUIRES_SHARED(&kqueue_runtime_detection_guard)
 #endif
@@ -357,6 +360,7 @@ void uv__async_stop(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) {
   while (!uv__queue_empty(&queue)) {
     q = uv__queue_head(&queue);
     h = uv__queue_data(q, uv_async_t, queue);
+    uv__handle_assume_loop_capability((uv_handle_t*) h, loop);
 
     uv__queue_remove(q);
     uv__queue_insert_tail(&loop->async_handles, q);
@@ -388,6 +392,7 @@ int uv__async_fork(uv_loop_t* loop) UV_REQUIRES_LOOP(loop) UV_EXCLUDES(&kqueue_r
   while (!uv__queue_empty(&queue)) {
     q = uv__queue_head(&queue);
     h = uv__queue_data(q, uv_async_t, queue);
+    uv__handle_assume_loop_capability((uv_handle_t*) h, loop);
 
     uv__queue_remove(q);
     uv__queue_insert_tail(&loop->async_handles, q);

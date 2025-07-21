@@ -55,7 +55,7 @@ static void uv__cancelled(struct uv__work* w) {
  * never holds the global mutex and the loop-local mutex at the same time.
  */
 static void worker(void* arg)
-UV_EXCLUDES(&mutex) UV_REQUIRES_SHARED(&once) {
+UV_EXCLUDES(&mutex, &owner_thread) UV_REQUIRES_SHARED(&once) {
   struct uv__work* w;
   struct uv__queue* q;
   int is_slow_work;
@@ -290,7 +290,7 @@ UV_EXCLUDES(&once, &mutex) {
  * that go through io_uring instead of the thread pool.
  */
 static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w)
-UV_EXCLUDES(&once, &mutex) {
+UV_EXCLUDES(&once, &mutex, &owner_thread) {
   int cancelled;
 
   uv_once(&once, init_once);  /* Ensure |mutex| is initialized. */
@@ -320,7 +320,7 @@ UV_EXCLUDES(&once, &mutex) {
 }
 
 
-void uv__work_done(uv_async_t* handle) {
+void uv__work_done(uv_async_t* handle) UV_REQUIRES_LOOP(container_of(handle, uv_loop_t, wq_async)) UV_EXCLUDES(&((uv_loop_t*)container_of(handle, uv_loop_t, wq_async))->wq_mutex) {
   struct uv__work* w;
   uv_loop_t* loop;
   struct uv__queue* q;
@@ -367,10 +367,11 @@ static void uv__queue_work(struct uv__work* w) {
 }
 
 
-static void uv__queue_done(struct uv__work* w, int err) {
+static void uv__queue_done(struct uv__work* w, int err) UV_REQUIRES_REQ_LOOP(w) {
   uv_work_t* req;
 
   req = container_of(w, uv_work_t, work_req);
+  uv__work_assume_req_loop_capability((uv_req_t*)req, w);
   uv__req_unregister(req->loop);
 
   if (req->after_work_cb == NULL)
@@ -383,7 +384,7 @@ static void uv__queue_done(struct uv__work* w, int err) {
 int uv_queue_work(uv_loop_t* loop,
                   uv_work_t* req,
                   uv_work_cb work_cb,
-                  uv_after_work_cb after_work_cb) UV_EXCLUDES(&once, &mutex) {
+                  uv_after_work_cb after_work_cb) UV_REQUIRES_LOOP(loop) UV_EXCLUDES(&once, &mutex) {
   if (work_cb == NULL)
     return UV_EINVAL;
 
@@ -399,7 +400,7 @@ int uv_queue_work(uv_loop_t* loop,
 }
 
 
-int uv_cancel(uv_req_t* req) UV_EXCLUDES(&once, &mutex) {
+int uv_cancel(uv_req_t* req) UV_EXCLUDES(&once, &mutex, &owner_thread) {
   struct uv__work* wreq;
   uv_loop_t* loop;
 

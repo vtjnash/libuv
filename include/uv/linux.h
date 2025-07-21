@@ -23,9 +23,9 @@
 #define UV_LINUX_H
 
 #define UV_PLATFORM_LOOP_FIELDS                                               \
-  uv__io_t inotify_read_watcher;                                              \
-  void* inotify_watchers;                                                     \
-  int inotify_fd;                                                             \
+  uv__io_t inotify_read_watcher UV_LOOP_GUARDED_BY(&owner_thread);           \
+  void* inotify_watchers UV_LOOP_GUARDED_BY(&owner_thread);                  \
+  int inotify_fd UV_LOOP_GUARDED_BY(&owner_thread);                          \
 
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
   struct uv__queue watchers;                                                  \

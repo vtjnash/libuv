@@ -49,8 +49,8 @@ struct poll_ctx {
 };
 
 static int statbuf_eq(const uv_stat_t* a, const uv_stat_t* b);
-static void poll_cb(uv_fs_t* req);
-static void timer_cb(uv_timer_t* timer);
+static void poll_cb(uv_fs_t* req) UV_REQUIRES_REQ_LOOP(req);
+static void timer_cb(uv_timer_t* timer) UV_REQUIRES_HANDLE_LOOP(timer);
 static void timer_close_cb(uv_handle_t* handle) UV_REQUIRES_HANDLE_LOOP(handle);
 
 static const uv_stat_t zero_statbuf;
