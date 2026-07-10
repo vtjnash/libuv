@@ -24,10 +24,20 @@
  *
  * Usage: appcontainer.exe program.exe [args...]
  *
- * Creates an AppContainer profile, grants it read/write access to the
- * current directory tree and temp directory, adds loopback exemption
- * for localhost network access, launches the given program inside the
- * AppContainer, waits for it to exit, and returns the child's exit code.
+ * Creates an AppContainer profile and stages the program (along with
+ * every file in the program's directory, and test/fixtures if present
+ * under the current directory) into the profile's own package folder,
+ * which Windows pre-grants to the AppContainer SID.  This avoids
+ * modifying the DACL of any pre-existing file or directory: the only
+ * global state touched is the NUL device DACL and the firewall
+ * loopback exemption list, both of which are revoked on exit
+ * (including on Ctrl+C, via a console control handler).  The staged
+ * copies are removed together with the package folder by
+ * DeleteAppContainerProfile.
+ *
+ * The child runs with the package folder as its working directory and
+ * with TMP/TEMP pointing at a subdirectory of it, and its exit code is
+ * returned.
  */
 
 #include <windows.h>
@@ -39,176 +49,15 @@
 #include <string.h>
 
 /*
- * Well-known capability SIDs for network access.
+ * Well-known capability SID for network access.
  * See https://devblogs.microsoft.com/oldnewthing/20220503-00/?p=106557
  */
-#define INTERNET_CLIENT_SID              "S-1-15-3-1"
-#define INTERNET_CLIENT_SERVER_SID       "S-1-15-3-2"
-#define PRIVATE_NETWORK_CLIENT_SERVER_SID "S-1-15-3-3"
+#define INTERNET_CLIENT_SERVER_SID "S-1-15-3-2"
 
-typedef LONG NTSTATUS;
-
-NTSTATUS NTAPI NtSetSecurityObject(HANDLE, SECURITY_INFORMATION,
-                                   PSECURITY_DESCRIPTOR);
-ULONG NTAPI RtlNtStatusToDosError(NTSTATUS);
-
-/* Modify the DACL on the given path for the AppContainer SID.
- * If grant, add an ACE with the given perms and inheritance.
- * If !grant, remove the SID's ACE (perms and inheritance are ignored).
- *
- * For non-inheritable ACEs, uses NtSetSecurityObject to set the DACL
- * on the single object without a tree walk.  The Win32 wrapper
- * SetNamedSecurityInfo recursively re-propagates every inheritable ACE
- * to all descendants even when the ACE being added is non-inheritable,
- * which is extremely slow on large directory trees.
- *
- * For inheritable ACEs, uses SetNamedSecurityInfo so that Windows
- * propagates the new ACE to existing descendants. */
-static DWORD modify_access(PSID sid, const char* path, DWORD perms,
-                           DWORD inheritance, int grant) {
-  EXPLICIT_ACCESSA ea;
-  PACL old_acl = NULL;
-  PACL new_acl = NULL;
-  PSECURITY_DESCRIPTOR sd = NULL;
-  SECURITY_DESCRIPTOR sd_new;
-  HANDLE h;
-  NTSTATUS status;
-  DWORD err;
-  ULONGLONG t1 = GetTickCount64();
-
-  /* Open the file or directory.  FILE_FLAG_BACKUP_SEMANTICS is
-   * required to obtain a handle to a directory. */
-  h = CreateFileA(path,
-                  READ_CONTROL | WRITE_DAC,
-                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                  NULL,
-                  OPEN_EXISTING,
-                  FILE_FLAG_BACKUP_SEMANTICS,
-                  NULL);
-  if (h == INVALID_HANDLE_VALUE) {
-    err = GetLastError();
-    fprintf(stderr, "appcontainer: modify_access %s %s perms=0x%lx inherit=0x%lx: "
-            "CreateFile error %lu (%.3f s)\n",
-            grant ? "grant" : "revoke", path, perms, inheritance,
-            err, (GetTickCount64() - t1) / 1000.0);
-    return err;
-  }
-
-  /* Read the existing DACL. */
-  err = GetSecurityInfo(h,
-                        SE_FILE_OBJECT,
-                        DACL_SECURITY_INFORMATION,
-                        NULL, NULL, &old_acl, NULL, &sd);
-  if (err != ERROR_SUCCESS) {
-    fprintf(stderr, "appcontainer: modify_access %s %s perms=0x%lx inherit=0x%lx: "
-            "GetSecurityInfo error %lu (%.3f s)\n",
-            grant ? "grant" : "revoke", path, perms, inheritance,
-            err, (GetTickCount64() - t1) / 1000.0);
-    CloseHandle(h);
-    return err;
-  }
-
-  /* Build updated ACL. */
-  memset(&ea, 0, sizeof(ea));
-  ea.grfAccessPermissions = grant ? perms : 0;
-  ea.grfAccessMode = grant ? SET_ACCESS : REVOKE_ACCESS;
-  ea.grfInheritance = grant ? inheritance : NO_INHERITANCE;
-  ea.Trustee.TrusteeForm = TRUSTEE_IS_SID;
-  ea.Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
-  ea.Trustee.ptstrName = (LPSTR)sid;
-
-  err = SetEntriesInAclA(1, &ea, old_acl, &new_acl);
-  if (err != ERROR_SUCCESS) {
-    fprintf(stderr, "appcontainer: modify_access %s %s perms=0x%lx inherit=0x%lx: "
-            "SetEntriesInAcl error %lu (%.3f s)\n",
-            grant ? "grant" : "revoke", path, perms, inheritance,
-            err, (GetTickCount64() - t1) / 1000.0);
-    LocalFree(sd);
-    CloseHandle(h);
-    return err;
-  }
-
-  /* For non-inheritable ACEs (e.g. parent directory grants), use
-   * NtSetSecurityObject to set the DACL on this single object without
-   * the tree walk that SetNamedSecurityInfo performs.  For inheritable
-   * ACEs, use SetNamedSecurityInfo so that Windows propagates the new
-   * ACE to existing descendants. */
-  if (inheritance == NO_INHERITANCE) {
-    InitializeSecurityDescriptor(&sd_new, SECURITY_DESCRIPTOR_REVISION);
-    SetSecurityDescriptorDacl(&sd_new, TRUE, new_acl, FALSE);
-    status = NtSetSecurityObject(h, DACL_SECURITY_INFORMATION, &sd_new);
-    err = (status == 0) ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
-  } else {
-    err = SetNamedSecurityInfoA((LPSTR)path,
-                                SE_FILE_OBJECT,
-                                DACL_SECURITY_INFORMATION,
-                                NULL, NULL, new_acl, NULL);
-  }
-
-  fprintf(stderr, "appcontainer: modify_access %s %s perms=0x%lx inherit=0x%lx: "
-          "%s (%.3f s)\n",
-          grant ? "grant" : "revoke", path, perms, inheritance,
-          err == ERROR_SUCCESS ? "ok" : "error",
-          (GetTickCount64() - t1) / 1000.0);
-
-  LocalFree(new_acl);
-  LocalFree(sd);
-  CloseHandle(h);
-  return err;
-}
-
-/* Modify access on all parent directories up to the drive root.
- * If grant is true, add read+execute; otherwise revoke. */
-static void modify_parents(PSID sid, const char* path, int grant) {
-  char parent[MAX_PATH];
-  size_t len;
-
-  strncpy(parent, path, MAX_PATH - 1);
-  parent[MAX_PATH - 1] = '\0';
-
-  for (;;) {
-    len = strlen(parent);
-    while (len > 0 && parent[len - 1] != '\\')
-      len--;
-    if (len == 0)
-      break;
-    /* Keep the trailing backslash only for drive roots (e.g. C:\). */
-    if (len > 1 && parent[len - 2] != ':')
-      parent[len - 1] = '\0';
-    else
-      parent[len] = '\0';
-
-    DWORD err = modify_access(sid, parent,
-                              GENERIC_READ | GENERIC_EXECUTE,
-                              NO_INHERITANCE, grant);
-    if (grant && err != ERROR_SUCCESS)
-      fprintf(stderr, "appcontainer: warning: grant parent %s: %lu\n",
-              parent, err);
-
-    /* Stop at drive root (e.g. "C:\"). */
-    if (len <= 3)
-      break;
-    parent[len - 1] = '\0';
-  }
-}
-
-/* Grant or revoke access to a directory and its parents. */
-static void modify_dir_and_parents(PSID sid, const char* path, int grant) {
-  ULONGLONG t1 = GetTickCount64();
-  DWORD err = modify_access(sid, path, GENERIC_ALL,
-                            CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE,
-                            grant);
-  if (grant && err != ERROR_SUCCESS) {
-    fprintf(stderr, "appcontainer: warning: grant %s: %lu\n", path, err);
-    return;
-  }
-
-  modify_parents(sid, path, grant);
-
-  fprintf(stderr, "appcontainer: %s tree %s: %.3f s\n",
-          grant ? "grant" : "revoke", path,
-          (GetTickCount64() - t1) / 1000.0);
-}
+/* Must be wide strings: CreateAppContainerProfile has no A variant. */
+static const wchar_t profile_name[] = L"libuv-test-appcontainer";
+static const wchar_t profile_display[] = L"libuv test";
+static const wchar_t profile_desc[] = L"AppContainer for libuv tests";
 
 /* Grant or revoke the AppContainer SID's access to the NUL device.
  * uv_spawn needs to open NUL for ignored stdio handles.
@@ -222,7 +71,6 @@ static void modify_nul_access(PSID sid, int grant) {
   PSECURITY_DESCRIPTOR sd = NULL;
   EXPLICIT_ACCESSA ea;
   DWORD err;
-  ULONGLONG t1 = GetTickCount64();
 
   /* Open NUL with permission to read and modify the DACL. */
   h = CreateFileA("\\\\.\\NUL",
@@ -277,10 +125,6 @@ static void modify_nul_access(PSID sid, int grant) {
       fprintf(stderr, "appcontainer: NUL device access granted\n");
   }
 
-  fprintf(stderr, "appcontainer: %s NUL: %.3f s\n",
-          grant ? "grant" : "revoke",
-          (GetTickCount64() - t1) / 1000.0);
-
   LocalFree(new_acl);
   LocalFree(sd);
   CloseHandle(h);
@@ -303,7 +147,6 @@ static void modify_loopback_exemption(PSID sid, int grant) {
   DWORD newCount = 0;
   DWORD err;
   DWORD i;
-  ULONGLONG t1 = GetTickCount64();
 
   hFirewall = LoadLibraryA("FirewallAPI.dll");
   if (!hFirewall) {
@@ -322,7 +165,9 @@ static void modify_loopback_exemption(PSID sid, int grant) {
     return;
   }
 
-  /* Get current exemption list. */
+  /* Get current exemption list.  (oldSids is deliberately leaked: the
+   * API does not document which allocator owns it and this process is
+   * short-lived.) */
   err = getConfig(&numSids, &oldSids);
   if (err != ERROR_SUCCESS) {
     if (grant)
@@ -358,18 +203,129 @@ static void modify_loopback_exemption(PSID sid, int grant) {
       fprintf(stderr, "appcontainer: loopback exemption added\n");
   }
 
-  fprintf(stderr, "appcontainer: %s loopback exemption: %.3f s\n",
-          grant ? "grant" : "revoke",
-          (GetTickCount64() - t1) / 1000.0);
-
   free(newSids);
   FreeLibrary(hFirewall);
+}
+
+/* Revoke the global grants (NUL device DACL, loopback exemption) and
+ * delete the profile.  Idempotent; also invoked from the console
+ * control handler so that Ctrl+C does not leave stale machine-wide
+ * state behind.  DeleteAppContainerProfile removes the package folder,
+ * and with it all the staged files. */
+static PSID cleanup_sid;
+static volatile LONG cleanup_done;
+
+static void cleanup(void) {
+  if (InterlockedExchange(&cleanup_done, 1))
+    return;
+  modify_nul_access(cleanup_sid, 0);
+  modify_loopback_exemption(cleanup_sid, 0);
+  DeleteAppContainerProfile(profile_name);
+}
+
+static BOOL WINAPI ctrl_handler(DWORD type) {
+  (void)type;
+  cleanup();
+  return FALSE;  /* Continue with default handling (terminate). */
+}
+
+/* Copy every regular file in the directory src into the directory dst
+ * (non-recursive).  Returns 0 on success. */
+static int stage_dir_flat(const char* src, const char* dst) {
+  char pattern[MAX_PATH];
+  char from[MAX_PATH];
+  char to[MAX_PATH];
+  WIN32_FIND_DATAA fd;
+  HANDLE find;
+
+  snprintf(pattern, sizeof(pattern), "%s\\*", src);
+  find = FindFirstFileA(pattern, &fd);
+  if (find == INVALID_HANDLE_VALUE) {
+    fprintf(stderr, "appcontainer: FindFirstFile %s: %lu\n",
+            pattern, GetLastError());
+    return -1;
+  }
+  do {
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+      continue;
+    snprintf(from, sizeof(from), "%s\\%s", src, fd.cFileName);
+    snprintf(to, sizeof(to), "%s\\%s", dst, fd.cFileName);
+    if (!CopyFileA(from, to, FALSE)) {
+      fprintf(stderr, "appcontainer: copy %s -> %s: %lu\n",
+              from, to, GetLastError());
+      FindClose(find);
+      return -1;
+    }
+  } while (FindNextFileA(find, &fd));
+  FindClose(find);
+  return 0;
+}
+
+/* Recursively copy the directory tree src to dst, creating dst.
+ * Returns 0 on success. */
+static int stage_tree(const char* src, const char* dst) {
+  char pattern[MAX_PATH];
+  char from[MAX_PATH];
+  char to[MAX_PATH];
+  WIN32_FIND_DATAA fd;
+  HANDLE find;
+  int err = 0;
+
+  if (!CreateDirectoryA(dst, NULL) &&
+      GetLastError() != ERROR_ALREADY_EXISTS) {
+    fprintf(stderr, "appcontainer: CreateDirectory %s: %lu\n",
+            dst, GetLastError());
+    return -1;
+  }
+
+  snprintf(pattern, sizeof(pattern), "%s\\*", src);
+  find = FindFirstFileA(pattern, &fd);
+  if (find == INVALID_HANDLE_VALUE) {
+    fprintf(stderr, "appcontainer: FindFirstFile %s: %lu\n",
+            pattern, GetLastError());
+    return -1;
+  }
+  do {
+    if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0)
+      continue;
+    snprintf(from, sizeof(from), "%s\\%s", src, fd.cFileName);
+    snprintf(to, sizeof(to), "%s\\%s", dst, fd.cFileName);
+    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+      err = stage_tree(from, to);
+    } else if (!CopyFileA(from, to, FALSE)) {
+      fprintf(stderr, "appcontainer: copy %s -> %s: %lu\n",
+              from, to, GetLastError());
+      err = -1;
+    }
+  } while (err == 0 && FindNextFileA(find, &fd));
+  FindClose(find);
+  return err;
+}
+
+/* Append s, surrounded by double quotes and preceded by a space when
+ * not first, to buf, tracking the write position in *pos.  Note:
+ * embedded quotes in s are not escaped; the test suite's arguments
+ * never contain them.  Returns 0 on success, -1 if s does not fit. */
+static int append_quoted(char* buf, size_t size, size_t* pos, const char* s) {
+  size_t len = strlen(s);
+
+  /* Two quotes, a possible separating space and the NUL terminator. */
+  if (*pos + len + 4 > size)
+    return -1;
+  if (*pos > 0)
+    buf[(*pos)++] = ' ';
+  buf[(*pos)++] = '"';
+  memcpy(&buf[*pos], s, len);
+  *pos += len;
+  buf[(*pos)++] = '"';
+  buf[*pos] = '\0';
+  return 0;
 }
 
 /* Launch a child process inside the AppContainer and return its
  * exit code. */
 static int run_child(const char* abs_exe, const char* cmdline,
-                     SECURITY_CAPABILITIES* sc) {
+                     const char* cwd, SECURITY_CAPABILITIES* sc) {
   STARTUPINFOEXA si;
   PROCESS_INFORMATION pi;
   SIZE_T attr_size;
@@ -421,7 +377,7 @@ static int run_child(const char* abs_exe, const char* cmdline,
                       TRUE,
                       EXTENDED_STARTUPINFO_PRESENT | CREATE_NO_WINDOW,
                       NULL,
-                      NULL,
+                      cwd,
                       &si.StartupInfo,
                       &pi)) {
     fprintf(stderr, "CreateProcessA failed: %lu\n", GetLastError());
@@ -441,26 +397,29 @@ static int run_child(const char* abs_exe, const char* cmdline,
 }
 
 int main(int argc, char* argv[]) {
-  /* These must be wide strings: CreateAppContainerProfile has no A variant. */
-  static const wchar_t profile_name[] = L"libuv-test-appcontainer";
-  static const wchar_t profile_display[] = L"libuv test";
-  static const wchar_t profile_desc[] = L"AppContainer for libuv tests";
-
   PSID sid = NULL;
   HRESULT hr;
   char cwd[MAX_PATH];
   char abs_exe[MAX_PATH];
-  char tmpdir[MAX_PATH];
+  char exe_dir[MAX_PATH];
+  char folder[MAX_PATH];
+  char staged_exe[MAX_PATH];
+  char path[MAX_PATH];
+  char fixtures[MAX_PATH];
   char cmdline[32768];
   SECURITY_CAPABILITIES sc;
+  LPWSTR sid_wstr = NULL;
+  LPWSTR folder_wstr = NULL;
   LPSTR sid_str = NULL;
+  const char* exe_name;
   int i;
+  int r;
   int exit_code;
   size_t pos;
   ULONGLONG start_time;
 
   /* Capability SIDs to add. */
-  PSID net_sid;
+  PSID net_sid = NULL;
   SID_AND_ATTRIBUTES caps[1];
   int num_caps = 0;
 
@@ -483,20 +442,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  /* Get the temp directory. */
-  if (!GetTempPathA(MAX_PATH, tmpdir)) {
-    fprintf(stderr, "GetTempPathA failed: %lu\n", GetLastError());
-    return 1;
-  }
-  {
-    size_t tlen = strlen(tmpdir);
-    if (tlen > 3 && tmpdir[tlen - 1] == '\\')
-      tmpdir[tlen - 1] = '\0';
-  }
-
   fprintf(stderr, "appcontainer: cwd=%s\n", cwd);
   fprintf(stderr, "appcontainer: exe=%s\n", abs_exe);
-  fprintf(stderr, "appcontainer: tmp=%s\n", tmpdir);
 
   /* Verify the exe exists. */
   if (GetFileAttributesA(abs_exe) == INVALID_FILE_ATTRIBUTES) {
@@ -504,6 +451,16 @@ int main(int argc, char* argv[]) {
             abs_exe, GetLastError());
     return 1;
   }
+
+  /* Split the exe path into directory and file name. */
+  exe_name = strrchr(abs_exe, '\\');
+  if (exe_name == NULL || (size_t)(exe_name - abs_exe) >= sizeof(exe_dir)) {
+    fprintf(stderr, "appcontainer: cannot split exe path: %s\n", abs_exe);
+    return 1;
+  }
+  memcpy(exe_dir, abs_exe, exe_name - abs_exe);
+  exe_dir[exe_name - abs_exe] = '\0';
+  exe_name++;
 
   /* Create capability SIDs for network access. */
   if (!ConvertStringSidToSidA(INTERNET_CLIENT_SERVER_SID, &net_sid)) {
@@ -519,17 +476,12 @@ int main(int argc, char* argv[]) {
   DeleteAppContainerProfile(profile_name);
 
   /* Create the AppContainer profile. */
-  {
-    ULONGLONG t1 = GetTickCount64();
-    hr = CreateAppContainerProfile(profile_name,
-                                   profile_display,
-                                   profile_desc,
-                                   num_caps > 0 ? caps : NULL,
-                                   num_caps,
-                                   &sid);
-    fprintf(stderr, "appcontainer: CreateAppContainerProfile: %.3f s\n",
-            (GetTickCount64() - t1) / 1000.0);
-  }
+  hr = CreateAppContainerProfile(profile_name,
+                                 profile_display,
+                                 profile_desc,
+                                 num_caps > 0 ? caps : NULL,
+                                 num_caps,
+                                 &sid);
   if (FAILED(hr)) {
     fprintf(stderr, "CreateAppContainerProfile failed: 0x%08lx\n", hr);
     return 1;
@@ -540,16 +492,77 @@ int main(int argc, char* argv[]) {
     LocalFree(sid_str);
   }
 
-  /* Grant access. */
-  {
-    ULONGLONG t1 = GetTickCount64();
-    modify_dir_and_parents(sid, cwd, 1);
-    modify_dir_and_parents(sid, tmpdir, 1);
-    modify_nul_access(sid, 1);
-    modify_loopback_exemption(sid, 1);
-    fprintf(stderr, "appcontainer: total setup grants: %.3f s\n",
-            (GetTickCount64() - t1) / 1000.0);
+  /* Find the profile's package folder.  Windows creates it as part of
+   * the profile with a DACL already granting the AppContainer SID full
+   * access, so staging the tests there needs no ACL modifications of
+   * our own. */
+  if (!ConvertSidToStringSidW(sid, &sid_wstr)) {
+    fprintf(stderr, "ConvertSidToStringSidW failed: %lu\n", GetLastError());
+    cleanup();
+    return 1;
   }
+  hr = GetAppContainerFolderPath(sid_wstr, &folder_wstr);
+  LocalFree(sid_wstr);
+  if (FAILED(hr)) {
+    fprintf(stderr, "GetAppContainerFolderPath failed: 0x%08lx\n", hr);
+    cleanup();
+    return 1;
+  }
+  if (!WideCharToMultiByte(CP_ACP, 0, folder_wstr, -1,
+                           folder, sizeof(folder), NULL, NULL)) {
+    fprintf(stderr, "WideCharToMultiByte failed: %lu\n", GetLastError());
+    CoTaskMemFree(folder_wstr);
+    cleanup();
+    return 1;
+  }
+  CoTaskMemFree(folder_wstr);
+  fprintf(stderr, "appcontainer: folder=%s\n", folder);
+
+  cleanup_sid = sid;
+  SetConsoleCtrlHandler(ctrl_handler, TRUE);
+
+  /* Stage the exe's directory (the exe itself, helper files and DLLs)
+   * into the package folder, along with test/fixtures if the current
+   * directory has one, and create a private temp directory. */
+  if (stage_dir_flat(exe_dir, folder) != 0) {
+    cleanup();
+    return 1;
+  }
+  snprintf(fixtures, sizeof(fixtures), "%s\\test\\fixtures", cwd);
+  if (GetFileAttributesA(fixtures) != INVALID_FILE_ATTRIBUTES) {
+    snprintf(path, sizeof(path), "%s\\test", folder);
+    if (!CreateDirectoryA(path, NULL) &&
+        GetLastError() != ERROR_ALREADY_EXISTS) {
+      fprintf(stderr, "appcontainer: CreateDirectory %s: %lu\n",
+              path, GetLastError());
+      cleanup();
+      return 1;
+    }
+    snprintf(path, sizeof(path), "%s\\test\\fixtures", folder);
+    if (stage_tree(fixtures, path) != 0) {
+      cleanup();
+      return 1;
+    }
+  }
+  snprintf(path, sizeof(path), "%s\\tmp", folder);
+  if (!CreateDirectoryA(path, NULL) &&
+      GetLastError() != ERROR_ALREADY_EXISTS) {
+    fprintf(stderr, "appcontainer: CreateDirectory %s: %lu\n",
+            path, GetLastError());
+    cleanup();
+    return 1;
+  }
+
+  /* Point the child's temp directory into the package folder too.
+   * The child inherits our environment. */
+  SetEnvironmentVariableA("TMP", path);
+  SetEnvironmentVariableA("TEMP", path);
+
+  /* Grant the remaining (machine-global, revoked-on-exit) access. */
+  modify_nul_access(sid, 1);
+  modify_loopback_exemption(sid, 1);
+  fprintf(stderr, "appcontainer: setup: %.3f s\n",
+          (GetTickCount64() - start_time) / 1000.0);
 
   /* Set up SECURITY_CAPABILITIES. */
   memset(&sc, 0, sizeof(sc));
@@ -559,51 +572,35 @@ int main(int argc, char* argv[]) {
     sc.CapabilityCount = num_caps;
   }
 
-  /* Build the command line. */
+  /* Build the command line, running the staged copy of the exe. */
+  snprintf(staged_exe, sizeof(staged_exe), "%s\\%s", folder, exe_name);
   pos = 0;
-  cmdline[pos++] = '"';
-  {
-    size_t elen = strlen(abs_exe);
-    memcpy(&cmdline[pos], abs_exe, elen);
-    pos += elen;
+  r = append_quoted(cmdline, sizeof(cmdline), &pos, staged_exe);
+  for (i = 2; r == 0 && i < argc; i++)
+    r = append_quoted(cmdline, sizeof(cmdline), &pos, argv[i]);
+  if (r != 0) {
+    fprintf(stderr, "appcontainer: command line too long\n");
+    cleanup();
+    return 1;
   }
-  cmdline[pos++] = '"';
-
-  for (i = 2; i < argc; i++) {
-    size_t arglen = strlen(argv[i]);
-    cmdline[pos++] = ' ';
-    cmdline[pos++] = '"';
-    memcpy(&cmdline[pos], argv[i], arglen);
-    pos += arglen;
-    cmdline[pos++] = '"';
-  }
-  cmdline[pos] = '\0';
 
   fprintf(stderr, "appcontainer: launching: %s\n", cmdline);
 
   {
     ULONGLONG child_start = GetTickCount64();
-    exit_code = run_child(abs_exe, cmdline, &sc);
+    exit_code = run_child(staged_exe, cmdline, folder, &sc);
     fprintf(stderr, "appcontainer: child exited with code %d (%.3f s)\n",
             exit_code, (GetTickCount64() - child_start) / 1000.0);
   }
 
-  /* Tear down the sandbox: revoke all grants so we don't leave
-   * stale SIDs on directories, the NUL device, or the firewall. */
-  {
-    ULONGLONG t1 = GetTickCount64();
-    modify_dir_and_parents(sid, cwd, 0);
-    modify_dir_and_parents(sid, tmpdir, 0);
-    modify_nul_access(sid, 0);
-    modify_loopback_exemption(sid, 0);
-    fprintf(stderr, "appcontainer: total teardown revokes: %.3f s\n",
-            (GetTickCount64() - t1) / 1000.0);
-  }
+  /* Tear down: revoke the NUL and loopback grants and delete the
+   * profile, which also removes the package folder and the staged
+   * files with it. */
+  cleanup();
 
   if (net_sid)
     LocalFree(net_sid);
   FreeSid(sid);
-  DeleteAppContainerProfile(profile_name);
   fprintf(stderr, "appcontainer: elapsed %.3f s\n",
           (GetTickCount64() - start_time) / 1000.0);
   return exit_code;

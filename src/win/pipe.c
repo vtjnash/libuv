@@ -106,35 +106,35 @@ static int includes_nul(const char *s, size_t n) {
 }
 
 
-static int uv_is_app_container_;
-static uv_once_t uv_is_app_container_guard_ = UV_ONCE_INIT;
+static int uv__in_app_container;
+static uv_once_t uv__in_app_container_guard = UV_ONCE_INIT;
 
 
-/* Is this process running under Windows AppContainer? */
-/* Detection algorithm from https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-for-legacy-applications- */
-static void uv__init__is_app_container(void) {
+/* Is this process running under Windows AppContainer?  Detection algorithm
+ * from https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-for-legacy-applications- */
+static void uv__in_app_container_init(void) {
   HANDLE token;
   DWORD ac;
   DWORD len;
   int ok;
 
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
-    uv_is_app_container_ = 0;
+    uv__in_app_container = 0;
     return;
   }
   ac = 0;
   len = sizeof(ac);
   ok = GetTokenInformation(token, TokenIsAppContainer, &ac, len, &len);
   CloseHandle(token);
-  uv_is_app_container_ = ok && ac != 0;
+  uv__in_app_container = ok && ac != 0;
 }
 
 
-/* Is this process running under Windows AppContainer? */
-/* Cached form for repeated use in the process. */
+/* Is this process running under Windows AppContainer?  Cached form for
+ * repeated use in the process. */
 static int uv__is_appcontainer(void) {
-  uv_once(&uv_is_app_container_guard_, uv__init__is_app_container);
-  return uv_is_app_container_;
+  uv_once(&uv__in_app_container_guard, uv__in_app_container_init);
+  return uv__in_app_container;
 }
 
 
